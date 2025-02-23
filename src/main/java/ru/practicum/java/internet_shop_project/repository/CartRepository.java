@@ -14,6 +14,9 @@ public interface CartRepository extends JpaRepository<Cart, Long> {
 
     Optional<Cart> findById(Long cartId);
 
+    @Query("SELECT c FROM Cart c WHERE c.id = 1")
+    Optional<Cart> findSingletonCart();
+
     @Modifying
     @Query("DELETE FROM Cart c WHERE c.id = :cartId")
     void clearCart(@Param("cartId") Long cartId);

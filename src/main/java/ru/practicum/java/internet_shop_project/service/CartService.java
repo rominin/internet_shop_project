@@ -24,7 +24,7 @@ public class CartService {
     private final ProductRepository productRepository;
 
     public Cart getCart() {
-        return cartRepository.findById(1L).orElseGet(() -> {
+        return cartRepository.findSingletonCart().orElseGet(() -> {
                     Cart cart = new Cart();
                     return cartRepository.save(cart);
                 }
@@ -33,7 +33,7 @@ public class CartService {
 
     @Transactional
     public List<CartItem> getCartItems() {
-        return cartItemRepository.findByCartId(getCart().getId());
+        return cartItemRepository.findInSingletonCart();
     }
 
     @Transactional
@@ -46,7 +46,7 @@ public class CartService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("Product not found"));
 
-        Optional<CartItem> existingItem = cartItemRepository.findByCartIdAndProductId(getCart().getId(), productId);
+        Optional<CartItem> existingItem = cartItemRepository.findInSingletonCartByProductId(productId);
 
         if (existingItem.isPresent()) {
             CartItem cartItem = existingItem.get();
@@ -64,10 +64,7 @@ public class CartService {
 
     @Transactional
     public void removeProductFromCart(Long productId) {
-        CartItem cartItem = cartItemRepository.findByCartIdAndProductId(getCart().getId(), productId)
-                        .orElseThrow(() -> new EntityNotFoundException("Product not found"));
-
-        cartItemRepository.delete(cartItem);
+        cartItemRepository.removeItemFromSingletonCart(productId);
     }
 
     @Transactional
@@ -76,7 +73,7 @@ public class CartService {
             throw new IllegalArgumentException("Product quantity must be greater than 0");
         }
 
-        CartItem cartItem = cartItemRepository.findByCartIdAndProductId(getCart().getId(), productId)
+        CartItem cartItem = cartItemRepository.findInSingletonCartByProductId(productId)
                 .orElseThrow(() -> new EntityNotFoundException("Product not found"));
 
         if (quantity == 0) {
@@ -89,7 +86,7 @@ public class CartService {
 
     @Transactional
     public void clearCart() {
-        cartItemRepository.clearCartItems(getCart().getId());
+        cartItemRepository.clearCartItemsInSingletonCart();
     }
 
     @Transactional(readOnly = true)

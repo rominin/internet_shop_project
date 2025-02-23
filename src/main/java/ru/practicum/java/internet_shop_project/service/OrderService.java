@@ -33,7 +33,7 @@ public class OrderService {
 
     @Transactional
     public Order createOrderFromCart() {
-        Cart cart = cartRepository.findById(1L)
+        Cart cart = cartRepository.findSingletonCart()
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
         if (cart.getCartItems().isEmpty()) {
@@ -57,7 +57,7 @@ public class OrderService {
 
         orderItemRepository.saveAll(orderItems);
 
-        cartItemRepository.clearCartItems(cart.getId());
+        cartItemRepository.clearCartItemsInSingletonCart();
 
         return order;
     }
