@@ -6,7 +6,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.java.internet_shop_project.entity.Cart;
 import ru.practicum.java.internet_shop_project.service.CartService;
-import ru.practicum.java.internet_shop_project.service.OrderService;
 
 @Controller
 @RequestMapping("/cart")
@@ -14,7 +13,6 @@ import ru.practicum.java.internet_shop_project.service.OrderService;
 public class CartController {
 
     private final CartService cartService;
-    private final OrderService orderService;
 
     @GetMapping
     public String getCart(Model model) {
@@ -24,27 +22,24 @@ public class CartController {
     }
 
     @PostMapping("/add")
-    public String addToCart(@RequestParam Long productId, @RequestParam Integer quantity) {
+    public String addToCart(@RequestParam Long productId, @RequestParam Integer quantity,
+                            @RequestHeader(value = "Referer", required = false) String referer) {
         cartService.addProductToCart(productId, quantity);
-        return "redirect:/cart";
+        return referer != null ? "redirect:" + referer : "redirect:/cart";
     }
 
     @PostMapping("/remove")
-    public String removeFromCart(@RequestParam Long productId) {
+    public String removeFromCart(@RequestParam Long productId,
+                                 @RequestHeader(value = "Referer", required = false) String referer) {
         cartService.removeProductFromCart(productId);
-        return "redirect:/cart";
+        return referer != null ? "redirect:" + referer : "redirect:/cart";
     }
 
     @PostMapping("/update")
-    public String updateCartItem(@RequestParam Long productId, @RequestParam Integer quantity) {
+    public String updateCartItem(@RequestParam Long productId, @RequestParam Integer quantity,
+                                 @RequestHeader(value = "Referer", required = false) String referer) {
         cartService.updateQuantity(productId, quantity);
-        return "redirect:/cart";
-    }
-
-    @PostMapping("/checkout")
-    public String checkout() {
-        orderService.createOrderFromCart();
-        return "redirect:/orders";
+        return referer != null ? "redirect:" + referer : "redirect:/cart";
     }
 
 }
