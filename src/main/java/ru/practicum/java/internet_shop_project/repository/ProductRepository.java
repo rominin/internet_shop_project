@@ -15,11 +15,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findAll(Pageable pageable);
 
-    List<Product> findByNameContainingIgnoreCase(String keyword);
+    List<Product> findByNameContainingIgnoreCase(String name);
 
     Optional<Product> findById(Long id);
 
     List<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
+
+    Page<Product> findByNameContainingIgnoreCaseAndPriceBetween(
+            String name, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable
+    );
 
     List<Product> findAllByOrderByPriceAsc();
     List<Product> findAllByOrderByPriceDesc();

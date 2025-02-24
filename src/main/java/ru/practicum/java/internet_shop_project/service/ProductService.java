@@ -1,6 +1,7 @@
 package ru.practicum.java.internet_shop_project.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -34,6 +35,26 @@ public class ProductService {
 
     public Product getProductById(Long id) {
         return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
+    }
+
+    public List<Product> getFilteredAndSortedProducts(
+            String keyword, BigDecimal minPrice, BigDecimal maxPrice,
+            int page, int size, String sortBy, String sortOrder) {
+
+        String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword : "%"; // или просто "" ?
+        BigDecimal min = (minPrice != null) ? minPrice : BigDecimal.ZERO;
+        BigDecimal max = (minPrice != null) ? maxPrice : BigDecimal.valueOf(1_000_000);
+
+        String sortField = (sortBy != null && !sortBy.isBlank()) ? sortBy : "id";
+        Sort sort = "desc".equalsIgnoreCase(sortOrder) ? Sort.by(sortField).descending() : Sort.by(sortField).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<Product> productPage = productRepository.findByNameContainingIgnoreCaseAndPriceBetween(
+                searchKeyword, min, max, pageable
+        );
+
+        return productPage.getContent();
     }
 
 }
