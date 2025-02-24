@@ -24,4 +24,12 @@ public class Cart {
     @Column(nullable = false)
     private BigDecimal totalPrice;
 
+    @PrePersist
+    @PreUpdate
+    private void setDefaultTotalPrice() {
+        if (totalPrice == null) {
+            totalPrice = BigDecimal.ZERO;
+        }
+    }
+
 }
