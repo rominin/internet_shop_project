@@ -11,6 +11,7 @@ import ru.practicum.java.internet_shop_project.repository.CartRepository;
 import ru.practicum.java.internet_shop_project.repository.OrderItemRepository;
 import ru.practicum.java.internet_shop_project.repository.OrderRepository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -60,6 +61,13 @@ public class OrderService {
         cartItemRepository.clearCartItemsInSingletonCart();
 
         return order;
+    }
+
+    public BigDecimal getTotalOrdersPrice() {
+        return orderRepository.findAll()
+                .stream()
+                .map(Order::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
 }
