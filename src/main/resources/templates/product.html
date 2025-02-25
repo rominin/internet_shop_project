@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${product.name}">Товар</title>
+</head>
+<body>
+
+<h1 th:text="${product.name}">Название товара</h1>
+<img th:src="${product.imageUrl}" alt="Изображение товара" width="200">
+
+<p><strong>Описание:</strong> <span th:text="${product.description}"></span></p>
+<p><strong>Цена:</strong> <span th:text="${product.price}"></span> ₽</p>
+
+<form method="post" th:action="@{/cart/add}" style="display:inline;">
+    <input type="hidden" name="productId" th:value="${product.id}">
+    <input type="hidden" name="quantity" value="1">
+    <button type="submit">Добавить в корзину</button>
+</form>
+
+<form method="post" th:action="@{/cart/remove}" style="display:inline;">
+    <input type="hidden" name="productId" th:value="${product.id}">
+    <button type="submit">Удалить из корзины</button>
+</form>
+
+<form method="post" th:action="@{/cart/update}" style="display:inline;">
+    <input type="hidden" name="productId" th:value="${product.id}">
+    <input type="number" name="quantity" min="1" value="1">
+    <button type="submit">Обновить количество</button>
+</form>
+
+<p><a href="/products">Вернуться к товарам</a></p>
+
+<div id="notification" style="
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+">
+    <span id="notification-message"></span>
+</div>
+
+<script>
+    function showNotification(message) {
+        let notification = document.getElementById("notification");
+        let messageSpan = document.getElementById("notification-message");
+        messageSpan.textContent = message;
+        notification.style.display = "block";
+
+        setTimeout(function () {
+            notification.style.display = "none";
+        }, 2000);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("form").forEach(form => {
+            let method = form.getAttribute("method").toUpperCase();
+
+            if (method === "GET") {
+                return;
+            }
+
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+
+                let formData = new FormData(form);
+                let actionUrl = form.getAttribute("action");
+
+                fetch(actionUrl, {
+                    method: "POST",
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        let message = "Действие выполнено!";
+                        if (actionUrl.includes("/cart/add")) {
+                            message = "Товар добавлен в корзину!";
+                        } else if (actionUrl.includes("/cart/remove")) {
+                            message = "Товар удалён из корзины!";
+                        } else if (actionUrl.includes("/cart/update")) {
+                            message = "Количество товара обновлено!";
+                        }
+                        showNotification(message);
+                    } else {
+                        showNotification("Ошибка выполнения!");
+                    }
+                }).catch(() => {
+                    showNotification("Ошибка сети!");
+                });
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
