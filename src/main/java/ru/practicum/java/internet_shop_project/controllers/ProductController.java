@@ -1,6 +1,7 @@
 package ru.practicum.java.internet_shop_project.controllers;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,13 +32,14 @@ public class ProductController {
             @RequestParam(defaultValue = "asc") String sortOrder,
             Model model) {
 
-        List<Product> products = productService.getFilteredAndSortedProducts(
+        Page<Product> products = productService.getFilteredAndSortedProducts(
                 keyword, minPrice, maxPrice, page, size, sortBy, sortOrder
         );
 
-        model.addAttribute("products", products);
+        model.addAttribute("products", products.getContent());
         model.addAttribute("currentPage", page);
         model.addAttribute("pageSize", size);
+        model.addAttribute("totalPages", products.getTotalPages());
 
         return "products";
     }

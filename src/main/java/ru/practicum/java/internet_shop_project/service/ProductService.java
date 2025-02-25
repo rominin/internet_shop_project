@@ -37,13 +37,13 @@ public class ProductService {
         return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
     }
 
-    public List<Product> getFilteredAndSortedProducts(
+    public Page<Product> getFilteredAndSortedProducts(
             String keyword, BigDecimal minPrice, BigDecimal maxPrice,
             int page, int size, String sortBy, String sortOrder) {
 
-        String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword : "%"; // или просто "" ?
+        String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword : "";
         BigDecimal min = (minPrice != null) ? minPrice : BigDecimal.ZERO;
-        BigDecimal max = (minPrice != null) ? maxPrice : BigDecimal.valueOf(1_000_000);
+        BigDecimal max = (maxPrice != null) ? maxPrice : BigDecimal.valueOf(1_000_000);
 
         String sortField = (sortBy != null && !sortBy.isBlank()) ? sortBy : "id";
         Sort sort = "desc".equalsIgnoreCase(sortOrder) ? Sort.by(sortField).descending() : Sort.by(sortField).ascending();
@@ -54,7 +54,7 @@ public class ProductService {
                 searchKeyword, min, max, pageable
         );
 
-        return productPage.getContent();
+        return productPage;
     }
 
 }

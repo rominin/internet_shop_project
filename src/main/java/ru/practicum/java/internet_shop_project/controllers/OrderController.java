@@ -24,14 +24,14 @@ public class OrderController {
         return "orders/list";
     }
 
-    @GetMapping
-    public String getOrderById(@PathVariable Long id, Model model) {
-        Order order = orderService.getOrderById(id);
+    @GetMapping("/{orderId}")
+    public String getOrderById(@PathVariable Long orderId, Model model) {
+        Order order = orderService.getOrderById(orderId);
         model.addAttribute("order", order);
         return "orders/details";
     }
 
-    @PostMapping
+    @PostMapping("/checkout")
     public String checkoutOrder() {
         Order order = orderService.createOrderFromCart();
         return "redirect:/orders/" + order.getId();
