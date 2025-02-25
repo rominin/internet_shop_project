@@ -16,3 +16,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  thymeleaf:
+    encoding: UTF-8
+    mode: HTML

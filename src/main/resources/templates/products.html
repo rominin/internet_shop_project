@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Все товары</title>
+</head>
+<body>
+<h1>Все товары</h1>
+
+<form method="get" action="#" th:action="@{/products}">
+    <label for="search">Поиск по названию:</label>
+    <input type="text" id="search" name="keyword" th:value="${param.keyword}">
+
+    <label for="minPrice">Цена от:</label>
+    <input type="number" id="minPrice" name="minPrice" th:value="${param.minPrice}" step="0.01">
+
+    <label for="maxPrice">до:</label>
+    <input type="number" id="maxPrice" name="maxPrice" th:value="${param.maxPrice}" step="0.01">
+
+    <label for="sortBy">Сортировать по:</label>
+    <select id="sortBy" name="sortBy">
+        <option value="name" th:selected="${param.sortBy != null and param.sortBy[0] == 'name'}">Алфавиту</option>
+        <option value="price" th:selected="${param.sortBy != null and param.sortBy[0] == 'price'}">Цене</option>
+    </select>
+
+    <label for="sortOrder">Порядок:</label>
+    <select id="sortOrder" name="sortOrder">
+        <option value="asc" th:selected="${param.sortOrder != null and param.sortOrder[0] == 'asc'}">По возрастанию</option>
+        <option value="desc" th:selected="${param.sortOrder != null and param.sortOrder[0] == 'desc'}">По убыванию</option>
+    </select>
+
+<!--    <label for="size">Товаров на странице:</label>-->
+<!--    <select id="size" name="size">-->
+<!--        <option value="10" th:selected="${param.size != null and param.size[0] == '10'}">10</option>-->
+<!--        <option value="20" th:selected="${param.size != null and param.size[0] == '20'}">20</option>-->
+<!--        <option value="50" th:selected="${param.size != null and param.size[0] == '50'}">50</option>-->
+<!--        <option value="100" th:selected="${param.size != null and param.size[0] == '100'}">100</option>-->
+<!--    </select>-->
+    <input type="hidden" name="size" th:value="${param.size}">
+
+    <button type="submit">Применить</button>
+</form>
+
+<hr>
+
+<table border="1">
+    <thead>
+    <tr>
+        <th>Картинка</th>
+        <th>Название</th>
+        <th>Цена</th>
+        <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="product : ${products}">
+        <td>
+            <img th:src="@{${product.imageUrl}}" alt="Product Image" width="50">
+        </td>
+        <td th:text="${product.name}"></td>
+        <td th:text="${product.price}"></td>
+        <td>
+            <a th:href="@{/products/{id}(id=${product.id})}">Просмотр</a>
+
+            <form method="post" th:action="@{/cart/add}" style="display:inline;">
+                <input type="hidden" name="productId" th:value="${product.id}">
+                <input type="hidden" name="quantity" value="1">
+                <button type="submit">В корзину</button>
+            </form>
+
+            <form method="post" th:action="@{/cart/remove}" style="display:inline;">
+                <input type="hidden" name="productId" th:value="${product.id}">
+                <button type="submit">Удалить</button>
+            </form>
+
+            <form method="post" th:action="@{/cart/update}" style="display:inline;">
+                <input type="hidden" name="productId" th:value="${product.id}">
+                <input type="number" name="quantity" min="1" value="1">
+                <button type="submit">Обновить</button>
+            </form>
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+<div>
+    <span>Показывать по:</span>
+    <a th:href="@{/products(size=10, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">10</a> |
+    <a th:href="@{/products(size=20, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">20</a> |
+    <a th:href="@{/products(size=50, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">50</a> |
+    <a th:href="@{/products(size=100, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">100</a>
+</div>
+
+<div>
+    <span>Страница:</span>
+    <a th:if="${currentPage > 0}"
+       th:href="@{/products(size=${pageSize}, page=${currentPage - 1}, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">
+        Назад
+    </a>
+
+    <span th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
+        <a th:href="@{/products(size=${pageSize}, page=${i}, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}"
+           th:text="${i + 1}"
+           th:classappend="${i == currentPage} ? 'active' : ''"></a>
+        |
+    </span>
+
+    <a th:if="${currentPage < totalPages - 1}"
+       th:href="@{/products(size=${pageSize}, page=${currentPage + 1}, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">
+        Вперед
+    </a>
+</div>
+
+<p><a href="/cart">Перейти в корзину 🛒</a></p>
+
+<div id="notification" style="
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+">
+    <span id="notification-message"></span>
+</div>
+
+<script>
+    function showNotification(message) {
+        let notification = document.getElementById("notification");
+        let messageSpan = document.getElementById("notification-message");
+        messageSpan.textContent = message;
+        notification.style.display = "block";
+
+        setTimeout(function () {
+            notification.style.display = "none";
+        }, 2000);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("form").forEach(form => {
+            let method = form.getAttribute("method").toUpperCase();
+
+            if (method === "GET") {
+                return;
+            }
+
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+
+                let formData = new FormData(form);
+                let actionUrl = form.getAttribute("action");
+
+                fetch(actionUrl, {
+                    method: "POST",
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        let message = "Действие выполнено!";
+                        if (actionUrl.includes("/cart/add")) {
+                            message = "Товар добавлен в корзину!";
+                        } else if (actionUrl.includes("/cart/remove")) {
+                            message = "Товар удалён из корзины!";
+                        } else if (actionUrl.includes("/cart/update")) {
+                            message = "Количество товара обновлено!";
+                        }
+                        showNotification(message);
+                    } else {
+                        showNotification("Ошибка выполнения!");
+                    }
+                }).catch(() => {
+                    showNotification("Ошибка сети!");
+                });
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
