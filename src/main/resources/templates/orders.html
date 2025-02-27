@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Все заказы</title>
+</head>
+<body>
+<h1>Ваши заказы</h1>
+
+<div th:if="${orders.isEmpty()}">
+    <p>У вас пока нет оформленных заказов</p>
+    <a href="/products">Перейти в каталог</a>
+</div>
+
+<div th:unless="${orders.isEmpty()}">
+    <table border="1">
+        <thead>
+        <tr>
+            <th>ID заказа</th>
+            <th>Сумма заказа</th>
+            <th>Действие</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="order : ${orders}">
+            <td th:text="${order.id}"></td>
+            <td th:text="${order.totalPrice} + ' ₽'"></td>
+            <td>
+                <a th:href="@{/orders/{id}(id=${order.id})}">Подробнее</a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h3>Общая сумма всех заказов: <span th:text="${totalOrdersPrice} + ' ₽'"></span></h3>
+</div>
+
+<p><a href="/products">🔙 Вернуться в магазин</a></p>
+
+<!-- TODO переместить в правый верхний угол-->
+<p><a href="/cart">Перейти в корзину</a></p>
+
+</body>
+</html>

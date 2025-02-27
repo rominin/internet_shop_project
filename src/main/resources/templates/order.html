@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Заказ #<span th:text="${order.id}"></span></title>
+</head>
+<body>
+<h1>Детали заказа #<span th:text="${order.id}"></span></h1>
+
+<div th:unless="${order.orderItems.isEmpty()}">
+    <table border="1">
+        <thead>
+        <tr>
+            <th>Картинка</th>
+            <th>Название</th>
+            <th>Цена</th>
+            <th>Количество</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="item : ${order.orderItems}">
+            <td><img th:src="@{${item.product.imageUrl}}" alt="Product Image" width="50"></td>
+            <td th:text="${item.product.name}"></td>
+            <td th:text="${item.product.price} + ' ₽'"></td>
+            <td th:text="${item.quantity}"></td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h3>Итоговая сумма: <span th:text="${order.totalPrice} + ' ₽'"></span></h3>
+</div>
+
+<p><a href="/products">На главную</a></p>
+<!-- TODO переместить в правый верхний угол -->
+<p><a href="/cart">Перейти в корзину</a></p>
+<p><a href="/orders">Вернуться к списку заказов</a></p>
+</body>
+</html>
