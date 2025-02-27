@@ -6,6 +6,9 @@
 </head>
 <body>
 
+<p class="top-right"><a href="/cart">Перейти в корзину</a></p>
+<p class="top-right"><a href="/orders">К заказам</a></p>
+
 <h1 th:text="${product.name}">Название товара</h1>
 <img th:src="${product.imageUrl}" alt="Изображение товара" width="200">
 
@@ -30,9 +33,6 @@
 </form>
 
 <p><a href="/products">Вернуться к товарам</a></p>
-
-<!-- TODO переместить в правый верхний угол-->
-<p><a href="/cart">Перейти в корзину</a></p>
 
 <!-- Всплывающее уведомление -->
 <div id="notification" style="

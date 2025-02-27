@@ -7,6 +7,9 @@
 <body>
 <h1>Детали заказа #<span th:text="${order.id}"></span></h1>
 
+<p class="top-right"><a href="/cart">Перейти в корзину</a></p>
+<p class="top-right"><a href="/cart">Вернуться к списку заказов</a></p>
+
 <div th:unless="${order.orderItems.isEmpty()}">
     <table border="1">
         <thead>
@@ -31,8 +34,5 @@
 </div>
 
 <p><a href="/products">На главную</a></p>
-<!-- TODO переместить в правый верхний угол -->
-<p><a href="/cart">Перейти в корзину</a></p>
-<p><a href="/orders">Вернуться к списку заказов</a></p>
 </body>
 </html>

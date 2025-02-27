@@ -7,6 +7,9 @@
 <body>
 <h1>Все товары</h1>
 
+<p class="top-right"><a href="/cart">Перейти в корзину</a></p>
+<p class="top-right"><a href="/orders">К заказам</a></p>
+
 <form method="get" action="#" th:action="@{/products}">
     <label for="search">Поиск по названию:</label>
     <input type="text" id="search" name="keyword" th:value="${param.keyword}">
@@ -103,9 +106,6 @@
         Вперед
     </a>
 </div>
-
-<!-- TODO переместить в правый верхний угол-->
-<p><a href="/cart">Перейти в корзину 🛒</a></p>
 
 <div id="notification" style="
     display: none;
