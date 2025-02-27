@@ -84,8 +84,9 @@
     document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll("form").forEach(form => {
             let method = form.getAttribute("method").toUpperCase();
+            let actionUrl = form.getAttribute("action");
 
-            if (method === "GET") {
+            if (method === "GET" || actionUrl.includes("/orders/checkout")) {
                 return;
             }
 
@@ -93,7 +94,6 @@
                 event.preventDefault();
 
                 let formData = new FormData(form);
-                let actionUrl = form.getAttribute("action");
 
                 fetch(actionUrl, {
                     method: "POST",
@@ -105,8 +105,6 @@
                             message = "Товар удалён из корзины! Перезагрузите страницу для корректного отображения!";
                         } else if (actionUrl.includes("/cart/update")) {
                             message = "Количество товара обновлено! Перезагрузите страницу для корректного отображения!";
-                        } else if (actionUrl.includes("/cart/checkout")) {
-                            message = "Заказ оформлен!";
                         }
                         showNotification(message);
                     } else {

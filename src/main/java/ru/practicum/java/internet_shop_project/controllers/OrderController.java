@@ -21,14 +21,14 @@ public class OrderController {
         List<Order> orders = orderService.getAllOrders();
         model.addAttribute("orders", orders);
         model.addAttribute("totalOrdersPrice", orderService.getTotalOrdersPrice());
-        return "orders/list";
+        return "orders";
     }
 
     @GetMapping("/{orderId}")
     public String getOrderById(@PathVariable Long orderId, Model model) {
         Order order = orderService.getOrderById(orderId);
         model.addAttribute("order", order);
-        return "orders/details";
+        return "order";
     }
 
     @PostMapping("/checkout")
