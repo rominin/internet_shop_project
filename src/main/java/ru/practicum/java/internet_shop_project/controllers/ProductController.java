@@ -2,17 +2,16 @@ package ru.practicum.java.internet_shop_project.controllers;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.service.ProductService;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Controller
 @RequestMapping("/products")
@@ -50,4 +49,21 @@ public class ProductController {
         model.addAttribute("product", product);
         return "product";
     }
+
+    @GetMapping("/import")
+    public String showImportPage() {
+        return "import";
+    }
+
+    @PostMapping(path = "/import", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    public String importProducts(@RequestPart MultipartFile file, RedirectAttributes redirectAttributes) {
+        try {
+            productService.importProductsFromCsv(file);
+            redirectAttributes.addFlashAttribute("success", "Products imported successfully!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error while products import: " + e.getMessage());
+        }
+         return "redirect:/products/import";
+    }
+
 }

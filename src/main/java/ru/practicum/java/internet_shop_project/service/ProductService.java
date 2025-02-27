@@ -1,14 +1,19 @@
 package ru.practicum.java.internet_shop_project.service;
 
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import ru.practicum.java.internet_shop_project.dto.ProductCsvDto;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -55,6 +60,23 @@ public class ProductService {
         );
 
         return productPage;
+    }
+
+    public void importProductsFromCsv(MultipartFile file) throws Exception {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+
+        try (InputStreamReader inputStreamReader = new InputStreamReader(file.getInputStream())) {
+            CsvToBean<ProductCsvDto> csvToBean = new CsvToBeanBuilder<ProductCsvDto>(inputStreamReader)
+                    .withType(ProductCsvDto.class)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
+
+            List<ProductCsvDto> productsDto = csvToBean.parse();
+            List<Product> products = productsDto.stream().map(ProductCsvDto::toEntity).toList();
+            productRepository.saveAll(products);
+        }
     }
 
 }
