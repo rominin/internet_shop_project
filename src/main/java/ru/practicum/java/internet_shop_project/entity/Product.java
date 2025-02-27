@@ -20,7 +20,7 @@ public class Product {
     @Column(nullable = false, unique = true)
     private String name;
 
-    @Column
+    @Column(columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(length = 500)
