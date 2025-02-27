@@ -61,11 +61,15 @@ public class CartService {
             cartItemRepository.save(newCartItem);
         }
 
+        updateCartTotalPrice();
+
     }
 
     @Transactional
     public void removeProductFromCart(Long productId) {
         cartItemRepository.removeItemFromSingletonCart(productId);
+
+        updateCartTotalPrice();
     }
 
     @Transactional
@@ -83,11 +87,15 @@ public class CartService {
             cartItem.setQuantity(quantity);
             cartItemRepository.save(cartItem);
         }
+
+        updateCartTotalPrice();
     }
 
     @Transactional
     public void clearCart() {
         cartItemRepository.clearCartItemsInSingletonCart();
+
+        updateCartTotalPrice();
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +103,14 @@ public class CartService {
         return getCartItems().stream()
                 .map(item -> item.getProduct().getPrice().multiply(new BigDecimal(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    @Transactional
+    public void updateCartTotalPrice() {
+        Cart cart = getCart();
+        BigDecimal totalPrice = getTotalPrice();
+        cart.setTotalPrice(totalPrice);
+        cartRepository.save(cart);
     }
 
 }
