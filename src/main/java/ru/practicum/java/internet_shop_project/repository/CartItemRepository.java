@@ -13,39 +13,18 @@ import java.util.Optional;
 @Repository
 public interface CartItemRepository extends JpaRepository<CartItem, Long> {
 
-    Optional<CartItem> findByCartIdAndProductId(Long cartId, Long productId);
-
     @Query("SELECT ci FROM CartItem ci WHERE ci.product.id = :productId AND ci.cart.id = 1")
     Optional<CartItem> findInSingletonCartByProductId(Long productId);
 
-    @Query("SELECT ci FROM CartItem ci WHERE ci.cart.id = :cartId")
-    List<CartItem> findByCartId(@Param("cartId") Long cartId);
-
     @Query("SELECT ci FROM CartItem ci WHERE ci.cart.id = 1")
     List<CartItem> findInSingletonCart();
-
-    @Modifying
-    @Query("DELETE FROM CartItem ci WHERE ci.cart.id = :cartId AND ci.product.id = :productId")
-    void removeItemFromCart(@Param("cartId") Long cartId, @Param("productId") Long productId);
 
     @Modifying
     @Query("DELETE FROM CartItem ci WHERE ci.cart.id = 1 AND ci.product.id = :productId")
     void removeItemFromSingletonCart(@Param("productId") Long productId);
 
     @Modifying
-    @Query("DELETE FROM CartItem ci WHERE ci.cart.id = :cartId")
-    void clearCartItems(@Param("cartId") Long cartId);
-
-    @Modifying
     @Query("DELETE FROM CartItem ci WHERE ci.cart.id = 1")
     void clearCartItemsInSingletonCart();
-
-    @Modifying
-    @Query("UPDATE CartItem ci SET ci.quantity = :quantity WHERE ci.cart.id = :cartId AND ci.product.id = :productId")
-    void updateItemQuantity(@Param("cartId") Long cartId, @Param("productId") Long productId, @Param("quantity") int quantity);
-
-    @Modifying
-    @Query("UPDATE CartItem ci SET ci.quantity = :quantity WHERE ci.cart.id = 1 AND ci.product.id = :productId")
-    void updateItemQuantityInSingletonCart(@Param("productId") Long productId, @Param("quantity") int quantity);
 
 }

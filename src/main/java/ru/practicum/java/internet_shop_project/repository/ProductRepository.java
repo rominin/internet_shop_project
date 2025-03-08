@@ -7,28 +7,15 @@ import org.springframework.stereotype.Repository;
 import ru.practicum.java.internet_shop_project.entity.Product;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    Page<Product> findAll(Pageable pageable);
-
-    List<Product> findByNameContainingIgnoreCase(String name);
-
     Optional<Product> findById(Long id);
-
-    List<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
 
     Page<Product> findByNameContainingIgnoreCaseAndPriceBetween(
             String name, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable
     );
-
-    List<Product> findAllByOrderByPriceAsc();
-    List<Product> findAllByOrderByPriceDesc();
-
-    List<Product> findAllByOrderByNameAsc();
-    List<Product> findAllByOrderByNameDesc();
 
 }

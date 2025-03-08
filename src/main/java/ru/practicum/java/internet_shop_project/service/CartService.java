@@ -91,13 +91,6 @@ public class CartService {
         updateCartTotalPrice();
     }
 
-    @Transactional
-    public void clearCart() {
-        cartItemRepository.clearCartItemsInSingletonCart();
-
-        updateCartTotalPrice();
-    }
-
     @Transactional(readOnly = true)
     public BigDecimal getTotalPrice() {
         return getCartItems().stream()

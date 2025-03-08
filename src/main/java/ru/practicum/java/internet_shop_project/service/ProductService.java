@@ -23,21 +23,6 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public List<Product> getAllProducts(int page, int size, String sortBy, String sortOrder) {
-        String sortField = (sortBy != null && !sortBy.isBlank()) ? sortBy : "id";
-        Sort sort = "desc".equalsIgnoreCase(sortOrder) ? Sort.by(sortField).descending() : Sort.by(sortField).ascending();
-        Pageable pageable = PageRequest.of(page, size, sort);
-        return productRepository.findAll(pageable).getContent();
-    }
-
-    public List<Product> searchProductsByNameContaining(String keyword) {
-        return productRepository.findByNameContainingIgnoreCase(keyword);
-    }
-
-    public List<Product> getProductsByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
-        return productRepository.findByPriceBetween(minPrice, maxPrice);
-    }
-
     public Product getProductById(Long id) {
         return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
     }
