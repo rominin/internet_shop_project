@@ -22,9 +22,6 @@ spring:
 #          descriptor:
 #            sql:
 #              trace: true
-  sql:
-    init:
-      mode: never
 
   thymeleaf:
     encoding: UTF-8
