@@ -11,19 +11,17 @@ spring:
   jpa:
     database: postgresql
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        # todo remove
-        use_sql_comments: true
-        generate_statistics: true
-        type:
-          descriptor:
-            sql:
-              trace: true
-
+#        use_sql_comments: true
+#        generate_statistics: true
+#        type:
+#          descriptor:
+#            sql:
+#              trace: true
   sql:
     init:
       mode: never
