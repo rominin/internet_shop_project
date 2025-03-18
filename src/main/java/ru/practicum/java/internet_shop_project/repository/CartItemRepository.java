@@ -1,30 +1,23 @@
 package ru.practicum.java.internet_shop_project.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.entity.CartItem;
 
-import java.util.List;
-import java.util.Optional;
-
 @Repository
-public interface CartItemRepository extends JpaRepository<CartItem, Long> {
+public interface CartItemRepository extends ReactiveCrudRepository<CartItem, Long> {
 
-    @Query("SELECT ci FROM CartItem ci WHERE ci.product.id = :productId AND ci.cart.id = 1")
-    Optional<CartItem> findInSingletonCartByProductId(Long productId);
+    Mono<CartItem> findByProductIdAndCartId(Long productId, Long cartId);
 
-    @Query("SELECT ci FROM CartItem ci WHERE ci.cart.id = 1")
-    List<CartItem> findInSingletonCart();
+    Flux<CartItem> findByCartId(Long cartId);
 
-    @Modifying
-    @Query("DELETE FROM CartItem ci WHERE ci.cart.id = 1 AND ci.product.id = :productId")
-    void removeItemFromSingletonCart(@Param("productId") Long productId);
+    @Query("DELETE FROM cart_items WHERE cart_id = :cartId AND product_id = :productId")
+    Mono<Void> removeItemFromCart(Long cartId, Long productId);
 
-    @Modifying
-    @Query("DELETE FROM CartItem ci WHERE ci.cart.id = 1")
-    void clearCartItemsInSingletonCart();
+    @Query("DELETE FROM cart_items WHERE cart_id = :cartId")
+    Mono<Void> clearCartItems(Long cartId);
 
 }
