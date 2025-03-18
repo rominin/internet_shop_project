@@ -2,8 +2,10 @@ package ru.practicum.java.internet_shop_project.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.java.internet_shop_project.entity.Cart;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import ru.practicum.java.internet_shop_project.mappers.OrderItemMapper;
+import ru.practicum.java.internet_shop_project.dto.OrderWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Order;
 import ru.practicum.java.internet_shop_project.entity.OrderItem;
 import ru.practicum.java.internet_shop_project.repository.CartItemRepository;
@@ -12,60 +14,62 @@ import ru.practicum.java.internet_shop_project.repository.OrderItemRepository;
 import ru.practicum.java.internet_shop_project.repository.OrderRepository;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
+    private static final Long SINGLETON_CARD_ID = 1L;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
+    private final OrderItemMapper orderItemMapper;
 
-    public List<Order> getAllOrders() {
-        return orderRepository.findAll();
-    }
-
-    public Order getOrderById(Long orderId) {
-        return orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-    }
-
-    @Transactional
-    public Order createOrderFromCart() {
-        Cart cart = cartRepository.findSingletonCart()
-                .orElseThrow(() -> new RuntimeException("Cart not found"));
-
-        if (cart.getCartItems().isEmpty()) {
-            throw new RuntimeException("Cart is empty");
-        }
-
-        Order order = Order.builder()
-                .totalPrice(cart.getTotalPrice())
-                .build();
-
-        orderRepository.save(order);
-
-        List<OrderItem> orderItems = cart.getCartItems().stream()
-                .map(cartItem -> new OrderItem(
-                        null,
-                        order,
-                        cartItem.getProduct(),
-                        cartItem.getQuantity()
-                ))
-                .toList();
-
-        orderItemRepository.saveAll(orderItems);
-
-        cartItemRepository.clearCartItemsInSingletonCart();
-
-        return order;
-    }
-
-    public BigDecimal getTotalOrdersPrice() {
+    public Flux<OrderWithItemsDto> getAllOrders() {
         return orderRepository.findAll()
-                .stream()
+                .flatMap(order ->
+                        orderItemMapper.toDtoList(orderItemRepository.findByOrderId(order.getId()))
+                                .collectList()
+                                .map(items -> new OrderWithItemsDto(order, items))
+                );
+    }
+
+    public Mono<OrderWithItemsDto> getOrderById(Long orderId) {
+        return orderRepository.findById(orderId)
+                .switchIfEmpty(Mono.error(new RuntimeException("Order not found")))
+                .flatMap(order ->
+                        orderItemMapper.toDtoList(orderItemRepository.findByOrderId(order.getId()))
+                                .collectList()
+                                .map(items -> new OrderWithItemsDto(order, items))
+                );
+    }
+
+    public Mono<Order> createOrderFromCart() {
+        return cartRepository.findById(SINGLETON_CARD_ID)
+                .switchIfEmpty(Mono.error(new RuntimeException("Cart not found")))
+                .flatMap(cart -> {
+                    if (cart.getTotalPrice().compareTo(BigDecimal.ZERO) == 0) {
+                        return Mono.error(new RuntimeException("Cart is empty"));
+                    }
+
+                    Order order = Order.builder()
+                            .totalPrice(cart.getTotalPrice())
+                            .build();
+
+                    return orderRepository.save(order)
+                            .flatMap(savedOrder -> cartItemRepository.findByCartId(SINGLETON_CARD_ID)
+                                    .flatMap(cartItem -> {
+                                        OrderItem orderItem = new OrderItem(null, savedOrder.getId(), cartItem.getProductId(), cartItem.getQuantity());
+                                        return orderItemRepository.save(orderItem);
+                                    })
+                                    .then(cartItemRepository.clearCartItems(SINGLETON_CARD_ID))
+                                    .thenReturn(savedOrder));
+                });
+    }
+
+    public Mono<BigDecimal> getTotalOrdersPrice() {
+        return orderRepository.findAll()
                 .map(Order::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }

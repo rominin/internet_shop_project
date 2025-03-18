@@ -3,18 +3,18 @@ package ru.practicum.java.internet_shop_project.service;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.dto.ProductCsvDto;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
+import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Service
@@ -23,11 +23,12 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public Product getProductById(Long id) {
-        return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
+    public Mono<Product> getProductById(Long id) {
+        return productRepository.findById(id)
+                .switchIfEmpty(Mono.error(new RuntimeException("Product not found")));
     }
 
-    public Page<Product> getFilteredAndSortedProducts(
+    public Flux<Product> getFilteredAndSortedProducts(
             String keyword, BigDecimal minPrice, BigDecimal maxPrice,
             int page, int size, String sortBy, String sortOrder) {
 
@@ -35,32 +36,49 @@ public class ProductService {
         BigDecimal min = (minPrice != null) ? minPrice : BigDecimal.ZERO;
         BigDecimal max = (maxPrice != null) ? maxPrice : BigDecimal.valueOf(1_000_000);
 
-        String sortField = (sortBy != null && !sortBy.isBlank()) ? sortBy : "id";
-        Sort sort = "desc".equalsIgnoreCase(sortOrder) ? Sort.by(sortField).descending() : Sort.by(sortField).ascending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        Page<Product> productPage = productRepository.findByNameContainingIgnoreCaseAndPriceBetween(
-                searchKeyword, min, max, pageable
-        );
-
-        return productPage;
+        return productRepository.findByNameContainingIgnoreCaseAndPriceBetween(searchKeyword, min, max)
+                .sort((p1, p2) -> {
+                    int comparison;
+                    switch (sortBy != null ? sortBy : "id") {
+                        case "price":
+                            comparison = p1.getPrice().compareTo(p2.getPrice());
+                            break;
+                        case "name":
+                            comparison = p1.getName().compareToIgnoreCase(p2.getName());
+                            break;
+                        default:
+                            comparison = p1.getId().compareTo(p2.getId());
+                    }
+                    return "desc".equalsIgnoreCase(sortOrder) ? -comparison : comparison;
+                })
+                .skip((long) page * size)
+                .take(size);
     }
 
-    public void importProductsFromCsv(MultipartFile file) throws Exception {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
-        }
+    public Mono<Void> importProductsFromCsv(FilePart filePart) {
+        return filePart.content()
+                .reduce(new StringBuilder(), (acc, buffer) -> acc.append(StandardCharsets.UTF_8.decode(buffer.asByteBuffer())))
+                .map(StringBuilder::toString)
+                .flatMap(csvContent -> Mono.fromCallable(() -> parseCsv(csvContent)))
+                .flatMapMany(Flux::fromIterable)
+                .map(ProductCsvDto::toEntity)
+                .flatMap(productRepository::save)
+                .then();
+    }
 
-        try (InputStreamReader inputStreamReader = new InputStreamReader(file.getInputStream())) {
-            CsvToBean<ProductCsvDto> csvToBean = new CsvToBeanBuilder<ProductCsvDto>(inputStreamReader)
+    private List<ProductCsvDto> parseCsv(String csvContent) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new java.io.ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8))))) {
+
+            CsvToBean<ProductCsvDto> csvToBean = new CsvToBeanBuilder<ProductCsvDto>(reader)
                     .withType(ProductCsvDto.class)
                     .withIgnoreLeadingWhiteSpace(true)
                     .build();
 
-            List<ProductCsvDto> productsDto = csvToBean.parse();
-            List<Product> products = productsDto.stream().map(ProductCsvDto::toEntity).toList();
-            productRepository.saveAll(products);
+            return csvToBean.parse();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error parsing CSV", e);
         }
     }
 
