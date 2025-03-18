@@ -1,14 +1,11 @@
 package ru.practicum.java.internet_shop_project.controllers;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import ru.practicum.java.internet_shop_project.entity.Product;
+import org.springframework.web.reactive.result.view.Rendering;
+import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.service.ProductService;
 
 import java.math.BigDecimal;
@@ -21,49 +18,50 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public String getProducts(
+    public Mono<Rendering> getProducts(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String sortBy,
-            @RequestParam(defaultValue = "asc") String sortOrder,
-            Model model) {
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortOrder) {
 
-        Page<Product> products = productService.getFilteredAndSortedProducts(
-                keyword, minPrice, maxPrice, page, size, sortBy, sortOrder
-        );
-
-        model.addAttribute("products", products.getContent());
-        model.addAttribute("currentPage", page);
-        model.addAttribute("pageSize", size);
-        model.addAttribute("totalPages", products.getTotalPages());
-
-        return "products";
+        return productService.getFilteredAndSortedProducts(keyword, minPrice, maxPrice, page, size, sortBy, sortOrder)
+                .collectList()
+                .map(products -> Rendering.view("products")
+                        .modelAttribute("products", products)
+                        .modelAttribute("currentPage", page)
+                        .modelAttribute("pageSize", size)
+                        .build()
+                );
     }
 
     @GetMapping("/{id}")
-    public String getProduct(@PathVariable("id") Long id, Model model) {
-        Product product = productService.getProductById(id);
-        model.addAttribute("product", product);
-        return "product";
+    public Mono<Rendering> getProduct(@PathVariable("id") Long id) {
+        return productService.getProductById(id)
+                .map(product -> Rendering.view("product")
+                        .modelAttribute("product", product)
+                        .build()
+                );
     }
 
     @GetMapping("/import")
-    public String showImportPage() {
-        return "import";
+    public Mono<Rendering> showImportPage() {
+        return Mono.just(Rendering.view("import").build());
     }
 
-    @PostMapping(path = "/import", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    public String importProducts(@RequestPart MultipartFile file, RedirectAttributes redirectAttributes) {
-        try {
-            productService.importProductsFromCsv(file);
-            redirectAttributes.addFlashAttribute("success", "Products imported successfully!");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Error while products import: " + e.getMessage());
-        }
-         return "redirect:/products/import";
+    @PostMapping("/import")
+    public Mono<Rendering> importProducts(@RequestPart("file") FilePart filePart) {
+        return productService.importProductsFromCsv(filePart)
+                .then(Mono.just(
+                        Rendering.view("import")
+                                .modelAttribute("success", "Products imported successfully!")
+                                .build()))
+                .onErrorResume(e -> Mono.just(
+                        Rendering.view("import")
+                                .modelAttribute("error", "Error while importing products: " + e.getMessage())
+                                .build()));
     }
 
 }
