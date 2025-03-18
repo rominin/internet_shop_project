@@ -1,12 +1,11 @@
 package ru.practicum.java.internet_shop_project.entity;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
-import java.util.List;
 
-@Entity
 @Table(name = "orders")
 @Getter
 @Setter
@@ -16,13 +15,8 @@ import java.util.List;
 public class Order {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderItem> orderItems;
-
-    @Column(nullable = false)
     private BigDecimal totalPrice;
 
 }

@@ -1,11 +1,11 @@
 package ru.practicum.java.internet_shop_project.entity;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
 
-@Entity
 @Table(name = "products")
 @Getter
 @Setter
@@ -14,19 +14,14 @@ import java.math.BigDecimal;
 public class Product {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
     private String name;
 
-    @Column(columnDefinition = "TEXT")
     private String imageUrl;
 
-    @Column(length = 500)
     private String description;
 
-    @Column(nullable = false)
     private BigDecimal price;
 
 }

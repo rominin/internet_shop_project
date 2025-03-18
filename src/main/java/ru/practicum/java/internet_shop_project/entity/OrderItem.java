@@ -1,9 +1,9 @@
 package ru.practicum.java.internet_shop_project.entity;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
 @Table(name = "order_items")
 @Getter
 @Setter
@@ -12,18 +12,12 @@ import lombok.*;
 public class OrderItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "order_id", nullable = false)
-    private Order order;
+    private Long orderId;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    private Long productId;
 
-    @Column(nullable = false)
     private Integer quantity;
 
 }

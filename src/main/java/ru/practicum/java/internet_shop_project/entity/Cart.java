@@ -1,35 +1,29 @@
 package ru.practicum.java.internet_shop_project.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
-import java.util.List;
 
-@Entity
 @Table(name = "carts")
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class Cart {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CartItem> cartItems;
-
-    @Column(nullable = false)
     private BigDecimal totalPrice;
 
-    @PrePersist
-    @PreUpdate
-    private void setDefaultTotalPrice() {
-        if (totalPrice == null) {
-            totalPrice = BigDecimal.ZERO;
-        }
+    public Cart() {
+        this.totalPrice = BigDecimal.ZERO;
+    }
+
+    public Cart(Long id, BigDecimal totalPrice) {
+        this.id = id;
+        this.totalPrice = totalPrice != null ? totalPrice : BigDecimal.ZERO;
     }
 
 }
