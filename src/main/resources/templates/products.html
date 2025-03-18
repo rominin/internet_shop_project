@@ -23,14 +23,14 @@
 
     <label for="sortBy">Сортировать по:</label>
     <select id="sortBy" name="sortBy">
-        <option value="name" th:selected="${param.sortBy != null and param.sortBy[0] == 'name'}">Алфавиту</option>
-        <option value="price" th:selected="${param.sortBy != null and param.sortBy[0] == 'price'}">Цене</option>
+        <option value="name" th:selected="${param.sortBy != null and param.sortBy == 'name'}">Алфавиту</option>
+        <option value="price" th:selected="${param.sortBy != null and param.sortBy == 'price'}">Цене</option>
     </select>
 
     <label for="sortOrder">Порядок:</label>
     <select id="sortOrder" name="sortOrder">
-        <option value="asc" th:selected="${param.sortOrder != null and param.sortOrder[0] == 'asc'}">По возрастанию</option>
-        <option value="desc" th:selected="${param.sortOrder != null and param.sortOrder[0] == 'desc'}">По убыванию</option>
+        <option value="asc" th:selected="${param.sortOrder != null and param.sortOrder == 'asc'}">По возрастанию</option>
+        <option value="desc" th:selected="${param.sortOrder != null and param.sortOrder == 'desc'}">По убыванию</option>
     </select>
 
     <input type="hidden" name="size" th:value="${param.size}">
@@ -82,27 +82,19 @@
 
 <div>
     <span>Показывать по:</span>
-    <a th:href="@{/products(size=10, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">10</a> |
-    <a th:href="@{/products(size=20, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">20</a> |
-    <a th:href="@{/products(size=50, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">50</a> |
-    <a th:href="@{/products(size=100, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">100</a>
+    <a th:href="@{/products(size=10, page=0, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">10</a> |
+    <a th:href="@{/products(size=20, page=0, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">20</a> |
+    <a th:href="@{/products(size=50, page=0, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">50</a> |
+    <a th:href="@{/products(size=100, page=0, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">100</a>
 </div>
 
 <div>
-    <span>Страница:</span>
     <a th:if="${currentPage > 0}"
        th:href="@{/products(size=${pageSize}, page=${currentPage - 1}, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">
         Назад
     </a>
 
-    <span th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
-        <a th:href="@{/products(size=${pageSize}, page=${i}, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}"
-           th:text="${i + 1}"
-           th:classappend="${i == currentPage} ? 'active' : ''"></a>
-        |
-    </span>
-
-    <a th:if="${currentPage < totalPages - 1}"
+    <a th:if="${products.size() == pageSize}"
        th:href="@{/products(size=${pageSize}, page=${currentPage + 1}, sortBy=${param.sortBy}, sortOrder=${param.sortOrder}, minPrice=${param.minPrice}, maxPrice=${param.maxPrice}, keyword=${param.keyword})}">
         Вперед
     </a>

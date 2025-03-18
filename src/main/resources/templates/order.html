@@ -8,7 +8,7 @@
 <h1>Детали заказа #<span th:text="${order.id}"></span></h1>
 
 <p class="top-right"><a href="/cart">Перейти в корзину</a></p>
-<p class="top-right"><a href="/cart">Вернуться к списку заказов</a></p>
+<p class="top-right"><a href="/orders">Вернуться к списку заказов</a></p>
 
 <div th:unless="${order.orderItems.isEmpty()}">
     <table border="1">

@@ -9,11 +9,11 @@
 
 <p class="top-right"><a href="/orders">К списку заказов</a></p>
 
-<div th:if="${cart.cartItems.isEmpty()}">
+<div th:if="${cart != null and cart.cartItems != null and cart.cartItems.isEmpty()}">
     <p>Корзина пуста</p>
 </div>
 
-<div th:unless="${cart.cartItems.isEmpty()}">
+<div th:unless="${cart.isEmpty()}">
     <table border="1">
         <thead>
         <tr>
