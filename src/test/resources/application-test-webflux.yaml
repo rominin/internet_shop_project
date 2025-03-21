@@ -1,0 +1,13 @@
+spring:
+  flyway:
+    enabled: false
+
+  r2dbc:
+    url: r2dbc:h2:mem:///~/db/testdb-webflux;MODE=PostgreSQL
+    username: sa
+    password:
+
+logging:
+  level:
+    org.springframework.r2dbc.core.DefaultDatabaseClient: DEBUG
+    io.r2dbc: DEBUG

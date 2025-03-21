@@ -3,33 +3,32 @@ package ru.practicum.java.internet_shop_project.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient
+@ActiveProfiles("test-webflux")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 public class ProductControllerIntegrationTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
     @Autowired
     private ProductRepository productRepository;
@@ -40,55 +39,81 @@ public class ProductControllerIntegrationTest {
                 new Product(null, "Laptop", "someUrl", "Some Laptop", new BigDecimal("1500.00")),
                 new Product(null, "Phone", "someUrl", "Some Smartphone", new BigDecimal("800.00"))
         );
-        productRepository.saveAll(products);
+        productRepository.saveAll(products).collectList().block();
     }
 
     @Test
-    void testGetProducts_success() throws Exception {
-        mockMvc.perform(get("/products")
-                        .param("page", "0")
-                        .param("size", "10")
-                        .param("sortBy", "name")
-                        .param("sortOrder", "asc"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("text/html;charset=UTF-8"))
-                .andExpect(view().name("products"))
-                .andExpect(model().attributeExists("products", "currentPage", "pageSize", "totalPages"));
+    void testGetProducts_success() {
+        webTestClient.get()
+                .uri("/products?page=0&size=10&sortBy=name&sortOrder=asc")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .consumeWith(response -> {
+                    String responseBody = response.getResponseBody();
+                    assertThat(responseBody).isNotNull()
+                            .contains("Laptop", "Phone")
+                            .contains("<html>", "<body>");
+                });
     }
 
     @Test
-    void testGetProductById_success() throws Exception {
-        Product product = productRepository.findAll().getFirst();
+    void testGetProductById_success() {
+        Product product = productRepository.findAll().blockFirst();
 
-        mockMvc.perform(get("/products/" + product.getId()))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("text/html;charset=UTF-8"))
-                .andExpect(view().name("product"))
-                .andExpect(model().attributeExists("product"))
-                .andExpect(model().attribute("product", hasProperty("name", is("Laptop"))));
+        webTestClient.get()
+                .uri("/products/" + product.getId())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .consumeWith(response -> {
+                    String responseBody = response.getResponseBody();
+                    assertThat(responseBody).isNotNull()
+                            .contains(product.getName())
+                            .contains(product.getPrice().toString())
+                            .contains("<html>", "<body>");
+                });
     }
 
     @Test
-    void testShowImportPage_success() throws Exception {
-        mockMvc.perform(get("/products/import"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("import"));
+    void testShowImportPage_success() {
+        webTestClient.get()
+                .uri("/products/import")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> assertThat(body).contains("<title>Импорт товаров</title>"));
     }
 
     @Test
-    void testImportProducts_success() throws Exception {
-        MockMultipartFile mockFile = new MockMultipartFile("file", "products.csv",
-                "text/csv", "name,imageUrl,description,price\nTablet,tablet.jpg,Smart tablet,500".getBytes());
+    void testImportProducts_success() {
+        byte[] csvBytes = "name,imageUrl,description,price\nTablet,tablet.jpg,Smart tablet,500".getBytes(StandardCharsets.UTF_8);
+        ByteArrayResource csvResource = new ByteArrayResource(csvBytes) {
+            @Override
+            public String getFilename() {
+                return "products.csv";
+            }
+        };
 
-        mockMvc.perform(multipart("/products/import")
-                        .file(mockFile)
-                        .contentType(MediaType.MULTIPART_FORM_DATA))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/products/import"));
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", csvResource)
+                .header("Content-Disposition", "form-data; name=file; filename=products.csv")
+                .contentType(MediaType.TEXT_PLAIN);
 
-        List<Product> products = productRepository.findAll().stream().filter(p -> p.getName().equals("Tablet")).toList();
-        assertThat(products).isNotEmpty();
-        assertThat(products.getFirst().getPrice()).isEqualByComparingTo(new BigDecimal("500"));
+        webTestClient.post()
+                .uri("/products/import")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .exchange()
+                .expectStatus().isOk();
+
+        List<Product> products = productRepository.findAll().collectList().block();
+        assertThat(products).isNotNull();
+        assertThat(products.stream().anyMatch(p -> "Tablet".equals(p.getName()) && p.getPrice().compareTo(new BigDecimal("500")) == 0))
+                .isTrue();
     }
 
 }

@@ -1,70 +1,84 @@
 package ru.practicum.java.internet_shop_project.controller;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.java.internet_shop_project.entity.Cart;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import ru.practicum.java.internet_shop_project.dto.OrderItemDto;
+import ru.practicum.java.internet_shop_project.dto.OrderWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Order;
-import ru.practicum.java.internet_shop_project.repository.CartRepository;
+import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.OrderRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-import static org.hamcrest.Matchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient
+@ActiveProfiles("test-webflux2")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 public class OrderControllerIntegrationTest {
 
     @Autowired
     private OrderRepository orderRepository;
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
     private Order savedOrder;
 
-    private Cart cart;
-
-    @BeforeAll
-    static void beforeAll(@Autowired CartRepository cartRepository) {
-        cartRepository.findSingletonCart();
-    }
-
     @BeforeEach
     void setUp() {
-        savedOrder = Order.builder().orderItems(List.of()).totalPrice(BigDecimal.valueOf(1500)).build();
-        orderRepository.save(savedOrder);
+        Product product = new Product(null, "Headphones", "headphones.jpg", "Wireless noise-canceling headphones", new BigDecimal("200"));
+        OrderItemDto orderItem = new OrderItemDto(1L, 1L, 2, product);
 
+        OrderWithItemsDto orderDto = new OrderWithItemsDto(
+                1L, List.of(orderItem), BigDecimal.valueOf(400)
+        );
+
+        savedOrder = Order.builder()
+                .totalPrice(orderDto.getTotalPrice())
+                .build();
+
+        savedOrder = orderRepository.save(savedOrder).block();
     }
 
     @Test
-    void testGetAllOrders_success() throws Exception {
-        mockMvc.perform(get("/orders"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("orders"))
-                .andExpect(model().attributeExists("orders"))
-                .andExpect(model().attribute("orders", hasSize(1)))
-                .andExpect(model().attribute("totalOrdersPrice", is(BigDecimal.valueOf(1500))));
+    void testGetAllOrders_success() {
+        webTestClient.get()
+                .uri("/orders")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .consumeWith(response -> {
+                    String responseBody = response.getResponseBody();
+                    assertThat(responseBody).isNotNull()
+                            .contains("400")
+                            .contains("<html>", "<body>");
+                });
     }
 
     @Test
-    void testGetOrderById_success() throws Exception {
-        mockMvc.perform(get("/orders/" + savedOrder.getId()))
-                .andExpect(status().isOk())
-                .andExpect(view().name("order"))
-                .andExpect(model().attributeExists("order"));
+    void testGetOrderById_success() {
+        webTestClient.get()
+                .uri("/orders/" + savedOrder.getId())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .consumeWith(response -> {
+                    String responseBody = response.getResponseBody();
+                    assertThat(responseBody).isNotNull()
+                            .contains("<html>", "<body>");
+                });
     }
 
 }
