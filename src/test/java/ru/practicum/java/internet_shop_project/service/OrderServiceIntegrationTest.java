@@ -1,12 +1,13 @@
 package ru.practicum.java.internet_shop_project.service;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 import ru.practicum.java.internet_shop_project.entity.Cart;
 import ru.practicum.java.internet_shop_project.entity.CartItem;
 import ru.practicum.java.internet_shop_project.entity.Order;
@@ -17,13 +18,13 @@ import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class OrderServiceIntegrationTest {
 
     @Autowired
@@ -38,135 +39,122 @@ class OrderServiceIntegrationTest {
     @Autowired
     private OrderService orderService;
 
-    @Autowired
-    private CartService cartService;
-
     private Product product1;
     private Product product2;
-    private Cart cart;
-
-    @BeforeAll
-    static void beforeAll(@Autowired CartService cartService) {
-        cartService.getCart();
-    }
+    private final Long SINGLETON_CART_ID = 1L;
 
     @BeforeEach
     void setUp() {
-        product1 = productRepository.save(new Product(null, "Laptop", "imageUrl", "Some Laptop", new BigDecimal("1500.00")));
-        product2 = productRepository.save(new Product(null, "Phone", "imageUrl", "Some Smartphone", new BigDecimal("800.00")));
+        product1 = productRepository.save(new Product(null, "Laptop", "imageUrl", "Some Laptop", new BigDecimal("1500.00"))).block();
+        product2 = productRepository.save(new Product(null, "Phone", "imageUrl", "Some Smartphone", new BigDecimal("800.00"))).block();
     }
 
     @Test
-    @Transactional
     void testCreateOrderFromCart_success() {
-        cart = cartService.getCart();
+        Cart cart = new Cart();
+        cartRepository.save(cart).block();
 
-        CartItem cartItem1 = new CartItem(null, cart, product1, 2);
-        CartItem cartItem2= new  CartItem(null, cart, product2, 1);
-        cartItemRepository.save(cartItem1);
-        cartItemRepository.save(cartItem2);
+        CartItem cartItem1 = new CartItem(null, SINGLETON_CART_ID, product1.getId(), 2);
+        CartItem cartItem2 = new CartItem(null, SINGLETON_CART_ID, product2.getId(), 1);
 
+        cartItemRepository.saveAll(Flux.just(cartItem1, cartItem2)).blockLast();
         cart.setTotalPrice(new BigDecimal("3800.00"));
-        setCartItemsProperly(List.of(cartItem1, cartItem2));
-        cartRepository.save(cart);
+        cartRepository.save(cart).block();
 
-        Order order = orderService.createOrderFromCart();
+        StepVerifier.create(orderService.createOrderFromCart())
+                .assertNext(order -> {
+                    assertThat(order.getId()).isNotNull();
+                    assertThat(order.getTotalPrice()).isEqualByComparingTo(new BigDecimal("3800.00"));
+                })
+                .verifyComplete();
 
-        assertNotNull(order);
-        assertThat(order.getId()).isNotNull();
-        assertThat(order.getTotalPrice()).isEqualByComparingTo(new BigDecimal("3800.00"));
-
-        assertThat(cartItemRepository.findAll()).isEmpty();
+        StepVerifier.create(cartItemRepository.findByCartId(SINGLETON_CART_ID))
+                .expectNextCount(0)
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testGetOrderById_success() {
-        cart = cartService.getCart();
-
-        CartItem cartItem1 = new CartItem(null, cart, product1, 1);
-        cartItemRepository.save(cartItem1);
-
+        Cart cart = new Cart();
         cart.setTotalPrice(new BigDecimal("1500.00"));
-        setCartItemsProperly(List.of(cartItem1));
-        cartRepository.save(cart);
+        Cart savedCart = cartRepository.save(cart).block();
+        Long cartId = savedCart.getId();
 
-        Order createdOrder = orderService.createOrderFromCart();
+        CartItem cartItem = new CartItem(null, cartId, product1.getId(), 1);
+        cartItemRepository.save(cartItem).block();
 
-        Order retrievedOrder = orderService.getOrderById(createdOrder.getId());
+        Order createdOrder = orderService.createOrderFromCart().block();
 
-        assertNotNull(retrievedOrder);
-        assertThat(retrievedOrder.getId()).isEqualTo(createdOrder.getId());
-        assertThat(retrievedOrder.getTotalPrice()).isEqualByComparingTo(createdOrder.getTotalPrice());
+        assertThat(createdOrder).isNotNull();
+        assertThat(createdOrder.getId()).isNotNull();
+        assertThat(createdOrder.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1500.00"));
+
+        StepVerifier.create(orderService.getOrderById(createdOrder.getId()))
+                .assertNext(orderDto -> {
+                    assertThat(orderDto.getId()).isEqualTo(createdOrder.getId());
+                    assertThat(orderDto.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1500.00"));
+                    assertThat(orderDto.getOrderItems()).hasSize(1);
+                    assertThat(orderDto.getOrderItems().get(0).getProduct().getId()).isEqualTo(product1.getId());
+                })
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testGetAllOrders_success() {
-        cart = cartService.getCart();
+        Cart cart = new Cart();
+        cart.setTotalPrice(new BigDecimal("2300.00"));
+        cartRepository.save(cart).block();
 
-        CartItem cartItem1 = new CartItem(null, cart, product1, 1);
-        cartItemRepository.save(cartItem1);
+        CartItem cartItem1 = new CartItem(null, cart.getId(), product1.getId(), 1);
+        CartItem cartItem2 = new CartItem(null, cart.getId(), product2.getId(), 1);
+        cartItemRepository.saveAll(Flux.just(cartItem1, cartItem2)).blockLast();
 
-        cart.setTotalPrice(new BigDecimal("1500.00"));
-        setCartItemsProperly(List.of(cartItem1));
-        cartRepository.save(cart);
-
-        orderService.createOrderFromCart();
-
-        CartItem cartItem2 = new CartItem(null, cart, product2, 1);
-        cartItemRepository.save(cartItem2);
+        orderService.createOrderFromCart().block();
 
         cart.setTotalPrice(new BigDecimal("800.00"));
-        setCartItemsProperly(List.of(cartItem2));
-        cartRepository.save(cart);
+        cartRepository.save(cart).block();
 
-        orderService.createOrderFromCart();
+        CartItem cartItem3 = new CartItem(null, cart.getId(), product2.getId(), 1);
+        cartItemRepository.save(cartItem3).block();
 
-        List<Order> orders = orderService.getAllOrders();
+        orderService.createOrderFromCart().block();
 
-        assertThat(orders).hasSize(2);
+        StepVerifier.create(orderService.getAllOrders())
+                .recordWith(ArrayList::new)
+                .thenConsumeWhile(Objects::nonNull)
+                .consumeRecordedWith(orders -> {
+                    assertThat(orders).hasSize(2);
+                })
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testGetTotalOrdersPrice_success() {
-        cart = cartService.getCart();
+        Cart cart = new Cart();
+        cart.setTotalPrice(new BigDecimal("3800.00"));
+        cartRepository.save(cart).block();
 
-        CartItem cartItem1 = new CartItem(null, cart, product1, 2);
-        cartItemRepository.save(cartItem1);
+        CartItem cartItem1 = new CartItem(null, SINGLETON_CART_ID, product1.getId(), 2);
+        CartItem cartItem2 = new CartItem(null, SINGLETON_CART_ID, product2.getId(), 1);
+        cartItemRepository.saveAll(Flux.just(cartItem1, cartItem2)).blockLast();
 
-        cart.setTotalPrice(new BigDecimal("3000.00"));
-        setCartItemsProperly(List.of(cartItem1));
-        cartRepository.save(cart);
+        orderService.createOrderFromCart().block();
 
-        orderService.createOrderFromCart();
-
-        CartItem cartItem2 = new CartItem(null, cart, product2, 1);
-        cartItemRepository.save(cartItem2);
-
-        cart.setTotalPrice(new BigDecimal("800.00"));
-        setCartItemsProperly(List.of(cartItem2));
-        cartRepository.save(cart);
-
-        orderService.createOrderFromCart();
-
-        BigDecimal totalOrdersPrice = orderService.getTotalOrdersPrice();
-        assertThat(totalOrdersPrice).isEqualByComparingTo(new BigDecimal("3800.00"));
+        StepVerifier.create(orderService.getTotalOrdersPrice())
+                .assertNext(totalPrice -> assertThat(totalPrice).isEqualByComparingTo(new BigDecimal("3800.00")))
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testCreateOrderFromEmptyCart_shouldThrowException() {
-        Exception exception = assertThrows(RuntimeException.class, orderService::createOrderFromCart);
-        assertThat(exception.getMessage()).isEqualTo("Cart is empty");
+        Cart cart = new Cart();
+        cartRepository.save(cart).block();
+
+        StepVerifier.create(orderService.createOrderFromCart())
+                .expectErrorMatches(throwable ->
+                        throwable instanceof RuntimeException &&
+                                throwable.getMessage().equals("Cart is empty"))
+                .verify();
     }
 
-    private void setCartItemsProperly(List<CartItem> cartItems) {
-        if (cart.getCartItems() != null) {
-            cartItems.forEach(cartItem -> {cart.getCartItems().add(cartItem);});
-        } else {
-            cart.setCartItems(new ArrayList<>(cartItems));
-        }
-    }
 }

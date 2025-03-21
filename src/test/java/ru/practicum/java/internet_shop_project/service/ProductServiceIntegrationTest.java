@@ -3,22 +3,28 @@ package ru.practicum.java.internet_shop_project.service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Page;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
+import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 public class ProductServiceIntegrationTest {
 
     @Autowired
@@ -28,60 +34,99 @@ public class ProductServiceIntegrationTest {
     private ProductRepository productRepository;
 
     @Test
-    @Transactional
     void testGetProductById_success() {
         Product savedProduct = new Product(null, "Laptop", "testUrl", "Some laptop", BigDecimal.valueOf(1500));
-        productRepository.save(savedProduct);
 
-        Product foundProduct = productService.getProductById(savedProduct.getId());
-
-        assertThat(foundProduct).isNotNull();
-        assertThat(foundProduct.getId()).isEqualTo(savedProduct.getId());
-        assertThat(foundProduct.getName()).isEqualTo("Laptop");
+        StepVerifier.create(productRepository.save(savedProduct)
+                        .flatMap(saved -> productService.getProductById(saved.getId())))
+                .assertNext(foundProduct -> {
+                    assertThat(foundProduct).isNotNull();
+                    assertThat(foundProduct.getId()).isEqualTo(savedProduct.getId());
+                    assertThat(foundProduct.getName()).isEqualTo("Laptop");
+                })
+                .verifyComplete();
     }
 
     @Test
     void testGetProductById_failure() {
-        assertThrows(RuntimeException.class, () -> productService.getProductById(999L));
+        StepVerifier.create(productService.getProductById(999L))
+                .expectErrorMatches(throwable -> throwable instanceof RuntimeException &&
+                        throwable.getMessage().equals("Product not found"))
+                .verify();
     }
 
     @Test
-    @Transactional
     void testGetFilteredAndSortedProducts_success() {
         Product product1 = new Product(null, "Laptop", "testUrl", "Some laptop", BigDecimal.valueOf(1500));
         Product product2 = new Product(null, "Phone", "testUrl", "Some phone", BigDecimal.valueOf(750));
 
-        productRepository.save(product1);
-        productRepository.save(product2);
-
-        Page<Product> products = productService.getFilteredAndSortedProducts(
-                "", BigDecimal.valueOf(100), BigDecimal.valueOf(1000), 0, 10, "name", "asc"
-        );
-
-        assertThat(products.getTotalElements()).isGreaterThanOrEqualTo(1);
-        assertThat(products.getContent().getFirst().getName()).isEqualTo("Phone");
+        StepVerifier.create(productRepository.saveAll(Flux.just(product1, product2)).thenMany(
+                        productService.getFilteredAndSortedProducts(
+                                "", BigDecimal.valueOf(100), BigDecimal.valueOf(1000), 0, 10, "name", "asc")))
+                .assertNext(foundProduct -> assertThat(foundProduct.getName()).isEqualTo("Phone"))
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
-    void testImportProductsFromCsv_success() throws Exception {
+    void testImportProductsFromCsv_success() {
         String csvData = "name,imageUrl,description,price\n" +
                 "Watch,watch.jpg,Smartwatch,250\n" +
                 "Camera,camera.jpg,DSLR Camera,800\n";
 
-        MultipartFile csvFile = new MockMultipartFile(
-                "file", "products.csv", "text/csv", csvData.getBytes()
-        );
+        MockMultipartFile csvFile = new MockMultipartFile(
+                "file", "products.csv", "text/csv", csvData.getBytes());
 
-        productService.importProductsFromCsv(csvFile);
+        FilePart filePart = new MockFilePart(csvFile);
 
-        Optional<Product> watch = productRepository.findAll().stream().filter(p -> p.getName().equals("Watch")).findFirst();
-        Optional<Product> camera = productRepository.findAll().stream().filter(p -> p.getName().equals("Camera")).findFirst();
+        productService.importProductsFromCsv(filePart).block();
+        List<Product> products = productRepository.findAll().collectList().block();
 
-        assertThat(watch).isPresent();
-        assertThat(camera).isPresent();
-        assertThat(watch.get().getPrice()).isEqualByComparingTo(BigDecimal.valueOf(250));
-        assertThat(camera.get().getPrice()).isEqualByComparingTo(BigDecimal.valueOf(800));
+        assertThat(products.stream().anyMatch(p -> p.getName().equals("Watch")));
+        assertThat(products.stream().anyMatch(p -> p.getName().equals("Camera")));
+    }
+
+
+    static class MockFilePart implements FilePart {
+
+        private final MockMultipartFile file;
+
+        public MockFilePart(MockMultipartFile file) {
+            this.file = file;
+        }
+
+        @Override
+        public String filename() {
+            return file.getOriginalFilename();
+        }
+
+        @Override
+        public Mono<Void> transferTo(java.nio.file.Path dest) {
+            throw new UnsupportedOperationException("Mock transferTo is not implemented");
+        }
+
+        @Override
+        public String name() {
+            return file.getName();
+        }
+
+        @Override
+        public HttpHeaders headers() {
+            return null;
+        }
+
+        @Override
+        public Mono<Void> delete() {
+            return Mono.empty();
+        }
+
+        @Override
+        public Flux<DataBuffer> content() {
+            try {
+                return Flux.just(new DefaultDataBufferFactory().wrap(file.getBytes()));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 }

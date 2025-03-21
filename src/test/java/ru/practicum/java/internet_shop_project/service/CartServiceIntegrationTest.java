@@ -1,30 +1,23 @@
 package ru.practicum.java.internet_shop_project.service;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.java.internet_shop_project.entity.Cart;
-import ru.practicum.java.internet_shop_project.entity.CartItem;
+import reactor.test.StepVerifier;
 import ru.practicum.java.internet_shop_project.entity.Product;
-import ru.practicum.java.internet_shop_project.repository.CartItemRepository;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 public class CartServiceIntegrationTest {
-
-    @Autowired
-    private CartItemRepository cartItemRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -35,104 +28,129 @@ public class CartServiceIntegrationTest {
     private Product product1;
     private Product product2;
 
-    @BeforeAll
-    static void beforeAll(@Autowired CartService cartService) {
-        cartService.getCart();
-    }
-
     @BeforeEach
     void setUp() {
-        product1 = productRepository.save(new Product(null, "Laptop", "imageUrl", "Some Laptop", new BigDecimal("1500.00")));
-        product2 = productRepository.save(new Product(null, "Phone", "imageUrl", "Some Smartphone", new BigDecimal("800.00")));
+        product1 = productRepository.save(new Product(null, "Laptop", "imageUrl", "Some Laptop", new BigDecimal("1500.00"))).block();
+        product2 = productRepository.save(new Product(null, "Phone", "imageUrl", "Some Smartphone", new BigDecimal("800.00"))).block();
     }
 
     @Test
-    @Transactional
     void testGetCart_success() {
-        Cart foundCart = cartService.getCart();
-        assertThat(foundCart).isNotNull();
-        assertThat(foundCart.getTotalPrice()).isEqualByComparingTo(BigDecimal.ZERO);
+        StepVerifier.create(cartService.getCart())
+                .assertNext(cart -> {
+                    assertThat(cart).isNotNull();
+                    assertThat(cart.getTotalPrice()).isEqualByComparingTo(BigDecimal.ZERO);
+                })
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testAddProductToCart_success() {
-        cartService.addProductToCart(product1.getId(), 2);
+        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+                .verifyComplete();
 
-        List<CartItem> cartItems = cartService.getCartItems();
-        assertThat(cartItems).hasSize(1);
-        assertThat(cartItems.getFirst().getProduct().getName()).isEqualTo("Laptop");
-        assertThat(cartItems.getFirst().getQuantity()).isEqualTo(2);
+        StepVerifier.create(cartService.getCart())
+                .assertNext(cart -> {
+                    assertThat(cart.getCartItems()).hasSize(1);
+                    assertThat(cart.getCartItems().getFirst().getProduct().getName()).isEqualTo("Laptop");
+                    assertThat(cart.getCartItems().getFirst().getQuantity()).isEqualTo(2);
 
-        BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(2));
-        assertThat(cartService.getTotalPrice()).isEqualByComparingTo(expectedTotal);
+                    BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(2));
+                    assertThat(cart.getTotalPrice()).isEqualByComparingTo(expectedTotal);
+                })
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testUpdateQuantity_success() {
-        cartService.addProductToCart(product1.getId(), 2);
-        cartService.updateQuantity(product1.getId(), 3);
+        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+                .verifyComplete();
 
-        CartItem updatedItem = cartItemRepository.findInSingletonCartByProductId(product1.getId()).orElseThrow();
-        assertThat(updatedItem.getQuantity()).isEqualTo(3);
+        StepVerifier.create(cartService.updateQuantity(product1.getId(), 3))
+                .verifyComplete();
 
-        BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(3));
-        assertThat(cartService.getTotalPrice()).isEqualByComparingTo(expectedTotal);
+        StepVerifier.create(cartService.getCart())
+                .assertNext(cart -> {
+                    assertThat(cart.getCartItems().getFirst().getQuantity()).isEqualTo(3);
+                    BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(3));
+                    assertThat(cart.getTotalPrice()).isEqualByComparingTo(expectedTotal);
+                })
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testUpdateQuantityToZero_success() {
-        cartService.addProductToCart(product1.getId(), 2);
-        cartService.updateQuantity(product1.getId(), 0);
+        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+                .verifyComplete();
 
-        List<CartItem> cartItems = cartService.getCartItems();
-        assertThat(cartItems).isEmpty();
-        assertThat(cartService.getTotalPrice()).isEqualByComparingTo(BigDecimal.ZERO);
+        StepVerifier.create(cartService.updateQuantity(product1.getId(), 0))
+                .verifyComplete();
+
+        StepVerifier.create(cartService.getCart())
+                .assertNext(cart -> {
+                    assertThat(cart.getCartItems()).isEmpty();
+                    assertThat(cart.getTotalPrice()).isEqualByComparingTo(BigDecimal.ZERO);
+                })
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testRemoveProductFromCart_success() {
-        cartService.addProductToCart(product1.getId(), 2);
-        cartService.addProductToCart(product2.getId(), 1);
+        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+                .verifyComplete();
 
-        cartService.removeProductFromCart(product1.getId());
+        StepVerifier.create(cartService.addProductToCart(product2.getId(), 1))
+                .verifyComplete();
 
-        List<CartItem> cartItems = cartService.getCartItems();
-        assertThat(cartItems).hasSize(1);
-        assertThat(cartItems.getFirst().getProduct().getName()).isEqualTo("Phone");
+        StepVerifier.create(cartService.removeProductFromCart(product1.getId()))
+                .verifyComplete();
 
-        BigDecimal expectedTotal = product2.getPrice().multiply(BigDecimal.valueOf(1));
-        assertThat(cartService.getTotalPrice()).isEqualByComparingTo(expectedTotal);
+        StepVerifier.create(cartService.getCart())
+                .assertNext(cart -> {
+                    assertThat(cart.getCartItems()).hasSize(1);
+                    assertThat(cart.getCartItems().getFirst().getProduct().getName()).isEqualTo("Phone");
+
+                    BigDecimal expectedTotal = product2.getPrice();
+                    assertThat(cart.getTotalPrice()).isEqualByComparingTo(expectedTotal);
+                })
+                .verifyComplete();
     }
 
     @Test
-    @Transactional
     void testAddProductToCart_failure() {
-        Exception exception = assertThrows(IllegalArgumentException.class, () -> cartService.addProductToCart(product1.getId(), -1));
-        assertThat(exception.getMessage()).isEqualTo("Product quantity must be greater than 0");
+        StepVerifier.create(cartService.addProductToCart(product1.getId(), -1))
+                .expectErrorMatches(throwable -> throwable instanceof IllegalArgumentException &&
+                        throwable.getMessage().equals("Product quantity must be greater than 0"))
+                .verify();
     }
 
     @Test
-    @Transactional
     void testUpdateQuantity_failure() {
-        cartService.addProductToCart(product1.getId(), 1);
-        Exception exception = assertThrows(IllegalArgumentException.class, () -> cartService.updateQuantity(product1.getId(), -2));
-        assertThat(exception.getMessage()).isEqualTo("Product quantity must be greater than 0");
+        StepVerifier.create(cartService.addProductToCart(product1.getId(), 1))
+                .verifyComplete();
+
+        StepVerifier.create(cartService.updateQuantity(product1.getId(), -2))
+                .expectErrorMatches(throwable -> throwable instanceof IllegalArgumentException &&
+                        throwable.getMessage().equals("Product quantity must be greater than 0"))
+                .verify();
     }
 
     @Test
-    @Transactional
     void testGetTotalPrice_success() {
-        cartService.addProductToCart(product1.getId(), 2);
-        cartService.addProductToCart(product2.getId(), 1);
+        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+                .verifyComplete();
 
-        BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(2))
-                .add(product2.getPrice().multiply(BigDecimal.ONE));
+        StepVerifier.create(cartService.addProductToCart(product2.getId(), 1))
+                .verifyComplete();
 
-        assertThat(cartService.getTotalPrice()).isEqualByComparingTo(expectedTotal);
+        StepVerifier.create(cartService.getTotalPrice())
+                .assertNext(totalPrice -> {
+                    BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(2))
+                            .add(product2.getPrice().multiply(BigDecimal.ONE));
+
+                    assertThat(totalPrice).isEqualByComparingTo(expectedTotal);
+                })
+                .verifyComplete();
     }
 
 }
