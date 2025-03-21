@@ -1,25 +1,23 @@
 package ru.practicum.java.internet_shop_project.repository;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.practicum.java.internet_shop_project.entity.Cart;
 import ru.practicum.java.internet_shop_project.entity.CartItem;
 import ru.practicum.java.internet_shop_project.entity.Product;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@DataJpaTest
+@SpringBootTest
 @ActiveProfiles("test")
-@Transactional
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 public class CartItemRepositoryTest {
 
     @Autowired
@@ -35,70 +33,84 @@ public class CartItemRepositoryTest {
     private Product product1;
     private Product product2;
 
-    @BeforeAll
-    static void beforeAll(@Autowired CartRepository cartRepository) {
-        cartRepository.save(new Cart());
-    }
-
     @BeforeEach
     void setUp() {
-        product1 = productRepository.save(new Product(null, "Laptop", "someUrl", "Some Laptop", new BigDecimal("1500.00")));
-        product2 = productRepository.save(new Product(null, "Phone", "someUrl", "Some Smartphone", new BigDecimal("800.00")));
+        cart = new Cart();
+        product1 = new Product(null, "Laptop", "someUrl", "Some Laptop", new BigDecimal("1500.00"));
+        product2 = new Product(null, "Phone", "someUrl", "Some Smartphone", new BigDecimal("800.00"));
+
+        StepVerifier.create(
+                cartRepository.save(cart)
+                        .flatMap(savedCart -> {
+                            cart = savedCart;
+                            return productRepository.save(product1);
+                        })
+                        .flatMap(savedProduct1 -> {
+                            product1 = savedProduct1;
+                            return productRepository.save(product2);
+                        })
+                        .flatMap(savedProduct2 -> {
+                            product2 = savedProduct2;
+                            return Mono.empty();
+                        })
+        ).verifyComplete();
     }
 
     @Test
-    void testFindInSingletonCartByProductId_success() {
-        cart = cartRepository.findSingletonCart().orElse(new Cart());
-        cart.setTotalPrice(java.math.BigDecimal.ZERO);
+    void testFindByProductIdAndCartId_success() {
+        CartItem cartItem = new CartItem(null, cart.getId(), product1.getId(), 2);
 
-        CartItem cartItem = new CartItem(null, cart, product1, 2);
-        cartItemRepository.save(cartItem);
+        StepVerifier.create(cartItemRepository.save(cartItem))
+                .expectNextMatches(savedItem -> savedItem.getProductId().equals(product1.getId()))
+                .verifyComplete();
 
-        Optional<CartItem> foundItem = cartItemRepository.findInSingletonCartByProductId(product1.getId());
-        assertThat(foundItem).isPresent();
-        assertThat(foundItem.get().getProduct().getName()).isEqualTo("Laptop");
+        StepVerifier.create(cartItemRepository.findByProductIdAndCartId(product1.getId(), cart.getId()))
+                .expectNextMatches(foundItem ->
+                        foundItem.getProductId().equals(product1.getId()) && foundItem.getQuantity() == 2)
+                .verifyComplete();
     }
 
     @Test
-    void testFindInSingletonCart_success() {
-        cart = cartRepository.findSingletonCart().orElse(new Cart());
-        cart.setTotalPrice(java.math.BigDecimal.ZERO);
+    void testFindByCartId_success() {
+        CartItem cartItem1 = new CartItem(null, cart.getId(), product1.getId(), 2);
+        CartItem cartItem2 = new CartItem(null, cart.getId(), product2.getId(), 1);
 
-        CartItem cartItem1 = new CartItem(null, cart, product1, 2);
-        CartItem cartItem2 = new CartItem(null, cart, product2, 1);
-        cartItemRepository.saveAll(List.of(cartItem1, cartItem2));
+        StepVerifier.create(cartItemRepository.saveAll(Flux.just(cartItem1, cartItem2)).then())
+                .verifyComplete();
 
-        List<CartItem> cartItems = cartItemRepository.findInSingletonCart();
-        assertThat(cartItems).hasSize(2);
+        StepVerifier.create(cartItemRepository.findByCartId(cart.getId()))
+                .expectNextCount(2)
+                .verifyComplete();
     }
 
     @Test
-    void testRemoveItemFromSingletonCart_success() {
-        cart = cartRepository.findSingletonCart().orElse(new Cart());
-        cart.setTotalPrice(java.math.BigDecimal.ZERO);
+    void testRemoveItemFromCart_success() {
+        CartItem cartItem = new CartItem(null, cart.getId(), product1.getId(), 2);
 
-        CartItem cartItem = new CartItem(null, cart, product1, 2);
-        cartItemRepository.save(cartItem);
+        StepVerifier.create(cartItemRepository.save(cartItem))
+                .expectNextCount(1)
+                .verifyComplete();
 
-        cartItemRepository.removeItemFromSingletonCart(product1.getId());
+        StepVerifier.create(cartItemRepository.removeItemFromCart(cart.getId(), product1.getId()))
+                .verifyComplete();
 
-        List<CartItem> cartItems = cartItemRepository.findInSingletonCart();
-        assertThat(cartItems).isEmpty();
+        StepVerifier.create(cartItemRepository.findByCartId(cart.getId()))
+                .verifyComplete();
     }
 
     @Test
-    void testClearCartItemsInSingletonCart_success() {
-        cart = cartRepository.findSingletonCart().orElse(new Cart());
-        cart.setTotalPrice(java.math.BigDecimal.ZERO);
+    void testClearCartItems_success() {
+        CartItem cartItem1 = new CartItem(null, cart.getId(), product1.getId(), 2);
+        CartItem cartItem2 = new CartItem(null, cart.getId(), product2.getId(), 1);
 
-        CartItem cartItem1 = new CartItem(null, cart, product1, 2);
-        CartItem cartItem2 = new CartItem(null, cart, product2, 1);
-        cartItemRepository.saveAll(List.of(cartItem1, cartItem2));
+        StepVerifier.create(cartItemRepository.saveAll(Flux.just(cartItem1, cartItem2)).then())
+                .verifyComplete();
 
-        cartItemRepository.clearCartItemsInSingletonCart();
+        StepVerifier.create(cartItemRepository.clearCartItems(cart.getId()))
+                .verifyComplete();
 
-        List<CartItem> cartItems = cartItemRepository.findInSingletonCart();
-        assertThat(cartItems).isEmpty();
+        StepVerifier.create(cartItemRepository.findByCartId(cart.getId()))
+                .verifyComplete();
     }
 
 }
