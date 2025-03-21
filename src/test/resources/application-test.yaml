@@ -1,11 +1,37 @@
+#spring:
+#  datasource:
+#    url: jdbc:h2:mem:testdb
+#    driver-class-name: org.h2.Driver
+#    username: sa
+#    password:
+#  jpa:
+#    database-platform: org.hibernate.dialect.H2Dialect
+#    hibernate:
+#      ddl-auto: update
+#    show-sql: true
+
+#spring:
+#  r2dbc:
+#    url: r2dbc:h2:mem:///testdb
+#    driver: io.r2dbc.h2.H2ConnectionFactoryProvider
+#    username: sa
+#    password:
+#  flyway:
+#    enabled: false  # Отключаем Flyway для тестов, так как он ожидает PostgreSQL
+#  sql:
+#    init:
+#      mode: always  # Чтобы Spring автоматически создавал схему БД
+
 spring:
-  datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: update
-    show-sql: true
+  flyway:
+    enabled: false
+
+  r2dbc:
+    url: r2dbc:h2:mem:///~/db/testdb;MODE=PostgreSQL # URL подключения к БД
+    username: sa # имя пользователя
+    password:  # пароль
+
+logging:
+  level:
+    org.springframework.r2dbc.core.DefaultDatabaseClient: DEBUG # заодно включим логирование SQL-запросов
+    io.r2dbc: DEBUG # и добавим больше деталей (не включать в настоящем приложении)

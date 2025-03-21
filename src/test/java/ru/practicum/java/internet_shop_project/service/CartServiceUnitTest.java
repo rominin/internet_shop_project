@@ -1,10 +1,14 @@
 package ru.practicum.java.internet_shop_project.service;
 
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import ru.practicum.java.internet_shop_project.dto.CartItemDto;
+import ru.practicum.java.internet_shop_project.dto.CartWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Cart;
 import ru.practicum.java.internet_shop_project.entity.CartItem;
 import ru.practicum.java.internet_shop_project.entity.Product;
@@ -14,13 +18,14 @@ import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = {CartService.class})
 public class CartServiceUnitTest {
+
+    private final Long SINGLETON_CART_ID = 1L;
 
     @MockitoBean
     private CartRepository cartRepository;
@@ -36,49 +41,56 @@ public class CartServiceUnitTest {
 
     @Test
     void testGetCart_success() {
-        Cart cart = new Cart();
-        cart.setId(1L);
-        cart.setTotalPrice(BigDecimal.ZERO);
+        Cart cart = new Cart(SINGLETON_CART_ID, BigDecimal.ZERO);
+        CartItem cartItem = new CartItem(1L, SINGLETON_CART_ID, 101L, 2);
+        Product product = new Product(101L, "Test Product", "imageUrl", "Desc", BigDecimal.valueOf(50));
+        CartItemDto cartItemDto = new CartItemDto(1L, SINGLETON_CART_ID, 2, product);
+        CartWithItemsDto expectedDto = new CartWithItemsDto(cart, List.of(cartItemDto));
 
-        when(cartRepository.findSingletonCart()).thenReturn(Optional.of(cart));
+        when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(cart));
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.just(cartItem));
+        when(productRepository.findById(101L)).thenReturn(Mono.just(product));
+        when(cartRepository.save(any(Cart.class))).thenReturn(Mono.just(cart));
 
-        Cart foundCart = cartService.getCart();
-
-        assertNotNull(foundCart);
-        assertEquals(cart.getId(), foundCart.getId());
-        verify(cartRepository, times(1)).findSingletonCart();
+        StepVerifier.create(cartService.getCart())
+                .assertNext(result -> {
+                    assert result.getId().equals(expectedDto.getId());
+                    assert result.getTotalPrice().equals(expectedDto.getTotalPrice());
+                    assert result.getCartItems().size() == 1;
+                    assert result.getCartItems().get(0).getProduct().equals(product);
+                })
+                .verifyComplete();
     }
 
     @Test
     void testGetCartItems_success() {
-        Cart cart = new Cart();
-        cart.setId(1L);
-        CartItem item1 = new CartItem(1L, cart, new Product(), 2);
-        CartItem item2 = new CartItem(2L, cart, new Product(), 3);
+        CartItem cartItem1 = new CartItem(1L, SINGLETON_CART_ID, 101L, 2);
+        CartItem cartItem2 = new CartItem(2L, SINGLETON_CART_ID, 102L, 3);
 
-        List<CartItem> mockItems = List.of(item1, item2);
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.just(cartItem1, cartItem2));
 
-        when(cartItemRepository.findInSingletonCart()).thenReturn(mockItems);
+        StepVerifier.create(cartService.getCartItems())
+                .expectNext(cartItem1, cartItem2)
+                .verifyComplete();
 
-        List<CartItem> result = cartService.getCartItems();
-
-        assertEquals(2, result.size());
-        assertEquals(item1, result.get(0));
-        assertEquals(item2, result.get(1));
-
-        verify(cartItemRepository, times(1)).findInSingletonCart();
+        verify(cartItemRepository, times(1)).findByCartId(SINGLETON_CART_ID);
     }
 
     @Test
     void testAddProductToCart_NewProduct_ShouldBeAdded() {
-        Cart cart = new Cart();
-        Product product = new Product(1L, "Test Product", "imageUrl", "Description", BigDecimal.valueOf(100));
+        Cart cart = new Cart(SINGLETON_CART_ID, BigDecimal.ZERO);
+        Product product = new Product(101L, "Test Product", "imageUrl", "Desc", BigDecimal.valueOf(100));
+        CartItem newCartItem = new CartItem(null, SINGLETON_CART_ID, 101L, 2);
 
-        when(cartRepository.findSingletonCart()).thenReturn(Optional.of(cart));
-        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
-        when(cartItemRepository.findInSingletonCartByProductId(product.getId())).thenReturn(Optional.empty());
+        when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(cart));
+        when(productRepository.findById(product.getId())).thenReturn(Mono.just(product));
+        when(cartItemRepository.findByProductIdAndCartId(product.getId(), SINGLETON_CART_ID)).thenReturn(Mono.empty());
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.empty());
+        when(cartItemRepository.save(any(CartItem.class))).thenReturn(Mono.just(newCartItem));
+        when(cartRepository.save(any(Cart.class))).thenReturn(Mono.just(cart));
 
-        cartService.addProductToCart(product.getId(), 2);
+        StepVerifier.create(cartService.addProductToCart(product.getId(), 2))
+                .verifyComplete();
 
         verify(cartItemRepository, times(1)).save(any(CartItem.class));
         verify(cartRepository, times(1)).save(cart);
@@ -86,50 +98,55 @@ public class CartServiceUnitTest {
 
     @Test
     void testAddProductToCart_ExistingProduct_ShouldIncreaseQuantity() {
-        Cart cart = new Cart();
-        Product product = new Product(1L, "Test Product", "imageUrl", "Description", BigDecimal.valueOf(100));
-        CartItem cartItem = new CartItem(1L, cart, product, 1);
+        Cart cart = new Cart(SINGLETON_CART_ID, BigDecimal.ZERO);
+        Product product = new Product(101L, "Test Product", "imageUrl", "Desc", BigDecimal.valueOf(100));
+        CartItem cartItem = new CartItem(1L, SINGLETON_CART_ID, 101L, 1);
 
-        when(cartRepository.findSingletonCart()).thenReturn(Optional.of(cart));
-        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
-        when(cartItemRepository.findInSingletonCartByProductId(product.getId())).thenReturn(Optional.of(cartItem));
+        when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(cart));
+        when(cartRepository.save(any(Cart.class))).thenReturn(Mono.just(cart));
 
-        cartService.addProductToCart(product.getId(), 2);
+        when(productRepository.findById(product.getId())).thenReturn(Mono.just(product));
+        when(cartItemRepository.findByProductIdAndCartId(product.getId(), SINGLETON_CART_ID)).thenReturn(Mono.just(cartItem));
+        when(cartItemRepository.save(any(CartItem.class))).thenReturn(Mono.just(cartItem));
+
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.just(cartItem));
+
+        StepVerifier.create(cartService.addProductToCart(product.getId(), 2))
+                .verifyComplete();
 
         assertEquals(3, cartItem.getQuantity());
-        verify(cartItemRepository, times(1)).save(cartItem);
+        verify(cartItemRepository, times(2)).save(any(CartItem.class));
     }
 
     @Test
     void testRemoveProductFromCart_success() {
-        Cart cart = new Cart();
-        cart.setId(1L);
-        cart.setTotalPrice(BigDecimal.ZERO);
+        when(cartItemRepository.removeItemFromCart(SINGLETON_CART_ID, 101L)).thenReturn(Mono.empty());
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.empty());
+        when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(new Cart(SINGLETON_CART_ID, BigDecimal.ZERO)));
+        when(cartRepository.save(any(Cart.class))).thenReturn(Mono.empty());
 
-        when(cartRepository.findSingletonCart()).thenReturn(Optional.of(cart));
+        StepVerifier.create(cartService.removeProductFromCart(101L))
+                .verifyComplete();
 
-        doNothing().when(cartItemRepository).removeItemFromSingletonCart(1L);
-
-        cartService.removeProductFromCart(1L);
-
-        verify(cartItemRepository, times(1)).removeItemFromSingletonCart(1L);
+        verify(cartItemRepository, times(1)).removeItemFromCart(SINGLETON_CART_ID, 101L);
         verify(cartRepository, times(1)).save(any(Cart.class));
     }
 
     @Test
     void testUpdateQuantity_ShouldUpdateQuantity() {
-        Cart cart = new Cart();
-        cart.setId(1L);
-        cart.setTotalPrice(BigDecimal.ZERO);
+        Cart cart = new Cart(SINGLETON_CART_ID, BigDecimal.ZERO);
+        CartItem cartItem = new CartItem(1L, SINGLETON_CART_ID, 101L, 1);
+        Product product = new Product(101L, "Test Product", "imageUrl", "Desc", BigDecimal.valueOf(100));
 
-        Product product = new Product(1L, "Test Product", "imageUrl","Description", BigDecimal.valueOf(100));
-        CartItem cartItem = new CartItem(1L, cart, product, 1);
+        when(cartItemRepository.findByProductIdAndCartId(101L, SINGLETON_CART_ID)).thenReturn(Mono.just(cartItem));
+        when(cartItemRepository.save(cartItem)).thenReturn(Mono.just(cartItem));
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.just(cartItem));
+        when(productRepository.findById(cartItem.getProductId())).thenReturn(Mono.just(product));
+        when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(cart));
+        when(cartRepository.save(cart)).thenReturn(Mono.just(cart));
 
-        when(cartRepository.findSingletonCart()).thenReturn(Optional.of(cart));
-
-        when(cartItemRepository.findInSingletonCartByProductId(product.getId())).thenReturn(Optional.of(cartItem));
-
-        cartService.updateQuantity(product.getId(), 5);
+        StepVerifier.create(cartService.updateQuantity(101L, 5))
+                .verifyComplete();
 
         assertEquals(5, cartItem.getQuantity());
         verify(cartItemRepository, times(1)).save(cartItem);
@@ -138,28 +155,32 @@ public class CartServiceUnitTest {
 
     @Test
     void testUpdateQuantity_ToZero_ShouldRemoveProduct() {
-        Cart cart = new Cart();
-        cart.setId(1L);
-        cart.setTotalPrice(BigDecimal.ZERO);
+        Cart cart = new Cart(SINGLETON_CART_ID, BigDecimal.ZERO);
+        CartItem cartItem = new CartItem(1L, SINGLETON_CART_ID, 101L, 2);
+        Product product = new Product(101L, "Test Product", "imageUrl", "Desc", BigDecimal.valueOf(100));
 
-        Product product = new Product(1L, "Test Product", "imageUrl", "Description", BigDecimal.valueOf(100));
-        CartItem cartItem = new CartItem(1L, cart, product, 2);
+        when(cartItemRepository.findByProductIdAndCartId(101L, SINGLETON_CART_ID)).thenReturn(Mono.just(cartItem));
+        when(cartItemRepository.removeItemFromCart(SINGLETON_CART_ID, 101L)).thenReturn(Mono.empty());
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.empty());
+        when(productRepository.findById(cartItem.getProductId())).thenReturn(Mono.just(product));
+        when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(cart));
+        when(cartRepository.save(cart)).thenReturn(Mono.just(cart));
 
-        when(cartRepository.findSingletonCart()).thenReturn(Optional.of(cart));
-        when(cartItemRepository.findInSingletonCartByProductId(product.getId())).thenReturn(Optional.of(cartItem));
-        doNothing().when(cartItemRepository).delete(cartItem);
+        StepVerifier.create(cartService.updateQuantity(101L, 0))
+                .verifyComplete();
 
-        cartService.updateQuantity(product.getId(), 0);
-
-        verify(cartItemRepository, times(1)).delete(cartItem);
+        verify(cartItemRepository, times(1)).removeItemFromCart(SINGLETON_CART_ID, 101L);
         verify(cartRepository, times(1)).save(cart);
     }
 
     @Test
     void testUpdateQuantity_ProductNotFound_ShouldThrowException() {
-        when(cartItemRepository.findInSingletonCartByProductId(1L)).thenReturn(Optional.empty());
+        when(cartItemRepository.findByProductIdAndCartId(101L, SINGLETON_CART_ID)).thenReturn(Mono.empty());
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.empty());
 
-        assertThrows(EntityNotFoundException.class, () -> cartService.updateQuantity(1L, 3));
+        StepVerifier.create(cartService.updateQuantity(101L, 3))
+                .expectError(RuntimeException.class)
+                .verify();
 
         verify(cartItemRepository, never()).save(any(CartItem.class));
         verify(cartRepository, never()).save(any(Cart.class));
@@ -167,45 +188,18 @@ public class CartServiceUnitTest {
 
     @Test
     void testGetTotalPrice_success() {
-        Cart cart = new Cart();
-        Product product1 = new Product(1L, "Test Product 1", "imageUrl", "Desc", BigDecimal.valueOf(100));
-        Product product2 = new Product(2L, "Test Product 2", "imageUrl", "Desc", BigDecimal.valueOf(50));
+        CartItem cartItem1 = new CartItem(1L, SINGLETON_CART_ID, 101L, 2);
+        CartItem cartItem2 = new CartItem(2L, SINGLETON_CART_ID, 102L, 1);
+        Product product1 = new Product(101L, "Test Product 1", "imageUrl", "Desc", BigDecimal.valueOf(100));
+        Product product2 = new Product(102L, "Test Product 2", "imageUrl", "Desc", BigDecimal.valueOf(50));
 
-        CartItem cartItem1 = new CartItem(1L, cart, product1, 2);
-        CartItem cartItem2 = new CartItem(2L, cart, product2, 1);
+        when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.just(cartItem1, cartItem2));
+        when(productRepository.findById(101L)).thenReturn(Mono.just(product1));
+        when(productRepository.findById(102L)).thenReturn(Mono.just(product2));
 
-        when(cartItemRepository.findInSingletonCart()).thenReturn(List.of(cartItem1, cartItem2));
-
-        BigDecimal totalPrice = cartService.getTotalPrice();
-
-        assertEquals(BigDecimal.valueOf(250), totalPrice);
-    }
-
-    @Test
-    void testUpdateCartTotalPrice_success() {
-        Cart cart = new Cart();
-        cart.setId(1L);
-        cart.setTotalPrice(BigDecimal.ZERO);
-
-        Product product1 = new Product();
-        product1.setPrice(new BigDecimal("100.00"));
-
-        Product product2 = new Product();
-        product2.setPrice(new BigDecimal("150.00"));
-
-        CartItem cartItem1 = new CartItem(1L, cart, product1, 1);
-        CartItem cartItem2 = new CartItem(2L, cart, product2, 1);
-
-        List<CartItem> cartItems = List.of(cartItem1, cartItem2);
-        BigDecimal expectedTotalPrice = new BigDecimal("250.00");
-
-        when(cartRepository.findSingletonCart()).thenReturn(Optional.of(cart));
-        when(cartItemRepository.findInSingletonCart()).thenReturn(cartItems);
-
-        cartService.updateCartTotalPrice();
-
-        assertEquals(expectedTotalPrice, cart.getTotalPrice());
-        verify(cartRepository, times(1)).save(cart);
+        StepVerifier.create(cartService.getTotalPrice())
+                .expectNext(BigDecimal.valueOf(250))
+                .verifyComplete();
     }
 
 }
