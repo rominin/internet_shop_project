@@ -2,73 +2,95 @@ package ru.practicum.java.internet_shop_project.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.controllers.OrderController;
+import ru.practicum.java.internet_shop_project.dto.OrderItemDto;
+import ru.practicum.java.internet_shop_project.dto.OrderWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Order;
+import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.service.OrderService;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(OrderController.class)
+@WebFluxTest(OrderController.class)
 public class OrderControllerIntegrationMockTest {
 
     @MockitoBean
     private OrderService orderService;
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
     @Test
-    void testGetAllOrders_success() throws Exception {
-        List<Order> orders = List.of(
-                Order.builder().id(1L).totalPrice(BigDecimal.valueOf(1500)).build(),
-                Order.builder().id(2L).totalPrice(BigDecimal.valueOf(2500)).build()
+    void testGetAllOrders_success() {
+        List<OrderWithItemsDto> orders = List.of(
+                new OrderWithItemsDto(1L, List.of(), BigDecimal.valueOf(1500)),
+                new OrderWithItemsDto(2L, List.of(), BigDecimal.valueOf(2500))
         );
-        when(orderService.getAllOrders()).thenReturn(orders);
-        when(orderService.getTotalOrdersPrice()).thenReturn(BigDecimal.valueOf(4000));
 
-        mockMvc.perform(get("/orders"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("text/html;charset=UTF-8"))
-                .andExpect(view().name("orders"))
-                .andExpect(model().attributeExists("orders"))
-                .andExpect(model().attribute("orders", orders))
-                .andExpect(model().attribute("totalOrdersPrice", BigDecimal.valueOf(4000)));
+        when(orderService.getAllOrders()).thenReturn(Flux.fromIterable(orders));
+        when(orderService.getTotalOrdersPrice()).thenReturn(Mono.just(BigDecimal.valueOf(4000)));
+
+        webTestClient.get()
+                .uri("/orders")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .consumeWith(response -> {
+                    String responseBody = response.getResponseBody();
+                    assertThat(responseBody)
+                            .isNotNull()
+                            .contains("1500", "2500", "4000")
+                            .contains("<html>", "<body>");
+                });
     }
 
     @Test
-    void testGetOrderById_success() throws Exception {
-        Order order = Order.builder()
-                .id(1L)
-                .totalPrice(BigDecimal.valueOf(1500))
-                .orderItems(List.of())
-                .build();
-        when(orderService.getOrderById(1L)).thenReturn(order);
+    void testGetOrderById_success() {
+        OrderWithItemsDto orderDto = new OrderWithItemsDto(
+                1L,
+                List.of(new OrderItemDto(1L, 1L, 1,new Product(1L, "Laptop", "", "", BigDecimal.valueOf(1500)))),
+                BigDecimal.valueOf(1500)
+        );
 
-        mockMvc.perform(get("/orders/1"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("text/html;charset=UTF-8"))
-                .andExpect(view().name("order"))
-                .andExpect(model().attributeExists("order"))
-                .andExpect(model().attribute("order", order));
+        when(orderService.getOrderById(1L)).thenReturn(Mono.just(orderDto));
+
+        webTestClient.get()
+                .uri("/orders/1")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType("text/html")
+                .expectBody(String.class)
+                .consumeWith(response -> {
+                    String responseBody = response.getResponseBody();
+                    assertThat(responseBody)
+                            .isNotNull()
+                            .contains("Laptop")
+                            .contains("1500")
+                            .contains("<html>", "<body>");
+                });
     }
 
     @Test
-    void testCheckoutOrder_success() throws Exception {
+    void testCheckoutOrder_success() {
         Order order = Order.builder().id(1L).totalPrice(BigDecimal.valueOf(1500)).build();
-        when(orderService.createOrderFromCart()).thenReturn(order);
+        when(orderService.createOrderFromCart()).thenReturn(Mono.just(order));
 
-        mockMvc.perform(post("/orders/checkout"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/orders/1"));
+        webTestClient.post()
+                .uri("/orders/checkout")
+                .exchange()
+                .expectStatus().isSeeOther()
+                .expectHeader().valueEquals("Location", "/orders/1");
 
         verify(orderService, times(1)).createOrderFromCart();
     }
