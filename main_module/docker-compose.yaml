@@ -16,7 +16,7 @@ services:
 
   app:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile
     container_name: shop-app-2
     depends_on:

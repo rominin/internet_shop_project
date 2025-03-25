@@ -2,12 +2,15 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>ru.practicum.java</groupId>
-    <artifactId>internet_shop_project</artifactId>
+    <parent>
+        <groupId>ru.practicum.java</groupId>
+        <artifactId>internet_shop_project</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <artifactId>payment_service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>internet_shop_project</name>
-    <description>internet_shop_project</description>
-    <packaging>pom</packaging>
+    <name>payment_service</name>
+    <description>payment_service</description>
     <url/>
     <licenses>
         <license/>
@@ -21,28 +24,21 @@
         <tag/>
         <url/>
     </scm>
-
-    <modules>
-        <module>main_module</module>
-        <module>payment_service</module>
-    </modules>
-
     <properties>
         <java.version>21</java.version>
-        <spring.boot.version>3.4.3</spring.boot.version>
     </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring.boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <build>
         <plugins>
