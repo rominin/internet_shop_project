@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.dto.ProductCsvDto;
+import ru.practicum.java.internet_shop_project.dto.ProductListItemDto;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
@@ -23,8 +24,14 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
+    private final RedisCacheService redisCacheService;
+
     public Mono<Product> getProductById(Long id) {
-        return productRepository.findById(id)
+        return redisCacheService.getProductById(id)
+                .switchIfEmpty(
+                        productRepository.findById(id)
+                                .flatMap(product -> redisCacheService.cacheProduct(product).thenReturn(product))
+                )
                 .switchIfEmpty(Mono.error(new RuntimeException("Product not found")));
     }
 
@@ -54,6 +61,42 @@ public class ProductService {
                 .skip((long) page * size)
                 .take(size);
     }
+
+    public Flux<ProductListItemDto> getFilteredAndSortedProductsWithCaching(
+            String keyword, BigDecimal minPrice, BigDecimal maxPrice,
+            int page, int size, String sortBy, String sortOrder) {
+
+        String key = buildCacheKey(keyword, minPrice, maxPrice, page, size, sortBy, sortOrder);
+
+        return redisCacheService.getCachedProductList(key)
+                .flatMapMany(Flux::fromIterable)
+                .switchIfEmpty(
+                        getFilteredAndSortedProducts(keyword, minPrice, maxPrice, page, size, sortBy, sortOrder)
+                                .map(p -> new ProductListItemDto(
+                                        p.getId(),
+                                        p.getName(),
+                                        p.getDescription(),
+                                        p.getPrice(),
+                                        p.getImageUrl()
+                                ))
+                                .collectList()
+                                .flatMap(list -> redisCacheService.cacheProductList(key, list).thenReturn(list))
+                                .flatMapMany(Flux::fromIterable)
+                );
+    }
+
+    private String buildCacheKey(String keyword, BigDecimal minPrice, BigDecimal maxPrice,
+                                 int page, int size, String sortBy, String sortOrder) {
+        return String.format("products:list:%s:%s:%s:%d:%d:%s:%s",
+                keyword != null ? keyword : "all",
+                minPrice != null ? minPrice.toPlainString() : "min",
+                maxPrice != null ? maxPrice.toPlainString() : "max",
+                page, size,
+                sortBy != null ? sortBy : "id",
+                sortOrder != null ? sortOrder : "asc"
+        );
+    }
+
 
     public Mono<Void> importProductsFromCsv(FilePart filePart) {
         return filePart.content()

@@ -27,7 +27,7 @@ public class ProductController {
             @RequestParam(defaultValue = "name") String sortBy,
             @RequestParam(defaultValue = "asc") String sortOrder) {
 
-        return productService.getFilteredAndSortedProducts(keyword, minPrice, maxPrice, page, size, sortBy, sortOrder)
+        return productService.getFilteredAndSortedProductsWithCaching(keyword, minPrice, maxPrice, page, size, sortBy, sortOrder)
                 .collectList()
                 .map(products -> Rendering.view("products")
                         .modelAttribute("products", products)

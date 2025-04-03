@@ -22,13 +22,21 @@ public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final ProductService productService;
 
     public Mono<CartWithItemsDto> getCart() {
         return cartRepository.findById(SINGLETON_CARD_ID)
                 .switchIfEmpty(cartRepository.save(new Cart()))
                 .flatMap(cart -> cartItemRepository.findByCartId(cart.getId())
-                        .flatMap(cartItem -> productRepository.findById(cartItem.getProductId())
-                                .map(product -> new CartItemDto(cartItem.getId(), cartItem.getCartId(), cartItem.getQuantity(), product)))
+                        .flatMap(cartItem ->
+                                productService.getProductById(cartItem.getProductId())
+                                        .map(product -> new CartItemDto(
+                                                cartItem.getId(),
+                                                cartItem.getCartId(),
+                                                cartItem.getQuantity(),
+                                                product
+                                        ))
+                        )
                         .collectList()
                         .map(items -> new CartWithItemsDto(cart, items))
                 );
