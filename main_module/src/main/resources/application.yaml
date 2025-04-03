@@ -19,3 +19,8 @@ spring:
   thymeleaf:
     encoding: UTF-8
     mode: HTML
+
+  payment-service-address: http://localhost:8081
+
+server:
+  port: 8080

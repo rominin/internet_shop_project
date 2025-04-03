@@ -1,3 +1,9 @@
 spring:
   application:
     name: payment_service
+
+server:
+  port: 8081
+
+payment:
+  initial-balance: 5000.00
