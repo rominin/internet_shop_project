@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: Payment Service API
+  version: 1.0.0
+
+paths:
+  /balance:
+    get:
+      summary: Get actual balance
+      operationId: getBalance
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+
+  /pay:
+    post:
+      summary: Make payment
+      operationId: makePayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '200':
+          description: Successful payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Not enough amount of means
+        '503':
+          description: Service temporary unavailable
+
+components:
+  schemas:
+    BalanceResponse:
+      type: object
+      properties:
+        amount:
+          type: number
+
+    PaymentRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+
+    PaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [OK, FAILED]
+  
