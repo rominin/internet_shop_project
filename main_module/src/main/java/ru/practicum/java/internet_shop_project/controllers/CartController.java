@@ -8,8 +8,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.result.view.Rendering;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import ru.practicum.java.internet_shop_project.client.PaymentClient;
+import ru.practicum.java.internet_shop_project.dto.CartWithItemsDto;
 import ru.practicum.java.internet_shop_project.service.CartService;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 
 @Controller
@@ -19,12 +22,37 @@ public class CartController {
 
     private final CartService cartService;
 
+    private final PaymentClient paymentClient;
+
     @GetMapping
-    public Mono<Rendering> getCart() {
+    public Mono<Rendering> getCart(@RequestParam(name = "errorMessage", required = false) String errorMessage) {
         return cartService.getCart()
-                .map(cart -> Rendering.view("cart")
-                        .modelAttribute("cart", cart)
-                        .build());
+                .zipWith(paymentClient.getBalance()
+                        .onErrorResume(ex -> Mono.just(BigDecimal.valueOf(-1)))
+                )
+                .map(tuple -> {
+                    CartWithItemsDto cart = tuple.getT1();
+                    BigDecimal balance = tuple.getT2();
+
+                    boolean canCheckout = false;
+                    String checkoutMessage = errorMessage;
+
+                    if (checkoutMessage == null) {
+                        if (balance.compareTo(BigDecimal.ZERO) < 0) {
+                            checkoutMessage = "Сервис платежей недоступен";
+                        } else if (balance.compareTo(cart.getTotalPrice()) < 0) {
+                            checkoutMessage = "Недостаточно средств для оформления заказа";
+                        } else {
+                            canCheckout = true;
+                        }
+                    }
+
+                    return Rendering.view("cart")
+                            .modelAttribute("cart", cart)
+                            .modelAttribute("canCheckout", canCheckout)
+                            .modelAttribute("checkoutMessage", checkoutMessage)
+                            .build();
+                });
     }
 
     @PostMapping("/add")

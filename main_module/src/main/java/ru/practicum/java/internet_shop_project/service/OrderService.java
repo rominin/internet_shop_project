@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.practicum.java.internet_shop_project.client.PaymentClient;
 import ru.practicum.java.internet_shop_project.mappers.OrderItemMapper;
 import ru.practicum.java.internet_shop_project.dto.OrderWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Order;
@@ -25,6 +26,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final OrderItemMapper orderItemMapper;
+    private final PaymentClient paymentClient;
 
     public Flux<OrderWithItemsDto> getAllOrders() {
         return orderRepository.findAll()
@@ -53,18 +55,25 @@ public class OrderService {
                         return Mono.error(new RuntimeException("Cart is empty"));
                     }
 
-                    Order order = Order.builder()
-                            .totalPrice(cart.getTotalPrice())
-                            .build();
+                    return paymentClient.makePayment(cart.getTotalPrice())
+                            .flatMap(success -> {
+                                if (!success) {
+                                    return Mono.error(new RuntimeException("Payment failed: not enough funds. Revisit cart (url should be clear: \"/cart\")"));
+                                }
 
-                    return orderRepository.save(order)
-                            .flatMap(savedOrder -> cartItemRepository.findByCartId(SINGLETON_CARD_ID)
-                                    .flatMap(cartItem -> {
-                                        OrderItem orderItem = new OrderItem(null, savedOrder.getId(), cartItem.getProductId(), cartItem.getQuantity());
-                                        return orderItemRepository.save(orderItem);
-                                    })
-                                    .then(cartItemRepository.clearCartItems(SINGLETON_CARD_ID))
-                                    .thenReturn(savedOrder));
+                                Order order = Order.builder()
+                                        .totalPrice(cart.getTotalPrice())
+                                        .build();
+
+                                return orderRepository.save(order)
+                                        .flatMap(savedOrder -> cartItemRepository.findByCartId(SINGLETON_CARD_ID)
+                                                .flatMap(cartItem -> {
+                                                    OrderItem orderItem = new OrderItem(null, savedOrder.getId(), cartItem.getProductId(), cartItem.getQuantity());
+                                                    return orderItemRepository.save(orderItem);
+                                                })
+                                                .then(cartItemRepository.clearCartItems(SINGLETON_CARD_ID))
+                                                .thenReturn(savedOrder));
+                            });
                 });
     }
 

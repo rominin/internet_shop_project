@@ -3,9 +3,13 @@ package ru.practicum.java.internet_shop_project.controllers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.result.view.Rendering;
+import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.service.OrderService;
+
+import java.nio.charset.StandardCharsets;
 
 @Controller
 @RequestMapping("/orders")
@@ -38,7 +42,15 @@ public class OrderController {
     @PostMapping("/checkout")
     public Mono<Rendering> checkoutOrder() {
         return orderService.createOrderFromCart()
-                .map(order -> Rendering.view("redirect:/orders/" + order.getId()).build());
+                .map(order -> Rendering.view("redirect:/orders/" + order.getId()).build())
+                .onErrorResume(e -> {
+                    String message = e instanceof WebClientRequestException
+                            ? "Сервис платежей временно недоступен. Попробуйте вернуться в корзину позже"
+                            : (e.getMessage() != null ? e.getMessage() : "Ошибка при оформлении заказа");
+
+                    String encodedMessage = UriUtils.encode(message, StandardCharsets.UTF_8);
+                    return Mono.just(Rendering.redirectTo("/cart?errorMessage=" + encodedMessage).build());
+                });
     }
 
 }

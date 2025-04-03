@@ -49,8 +49,12 @@
     <h3>Общая сумма: <span th:text="${cart.totalPrice} + ' ₽'"></span></h3>
 
     <form method="post" th:action="@{/orders/checkout}">
-        <button type="submit">Оформить заказ</button>
+        <button type="submit" th:disabled="${!canCheckout}">Оформить заказ</button>
     </form>
+
+    <div th:if="${checkoutMessage != null}">
+        <p th:text="${checkoutMessage}" style="color:red;"></p>
+    </div>
 
 </div>
 
