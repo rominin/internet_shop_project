@@ -8,6 +8,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import ru.practicum.java.internet_shop_project.client.PaymentClient;
 import ru.practicum.java.internet_shop_project.dto.OrderItemDto;
 import ru.practicum.java.internet_shop_project.entity.*;
 import ru.practicum.java.internet_shop_project.mappers.OrderItemMapper;
@@ -36,6 +37,9 @@ public class OrderServiceUnitTest {
 
     @MockitoBean
     private OrderItemMapper orderItemMapper;
+
+    @MockitoBean
+    private PaymentClient paymentClient;
 
     @Autowired
     private OrderService orderService;
@@ -129,6 +133,7 @@ public class OrderServiceUnitTest {
     @Test
     void testCreateOrderFromCart_success() {
         when(cartRepository.findById(1L)).thenReturn(Mono.just(cart));
+        when(paymentClient.makePayment(BigDecimal.valueOf(300))).thenReturn(Mono.just(true));
         when(cartItemRepository.findByCartId(1L)).thenReturn(Flux.just(cartItem));
         when(orderRepository.save(any(Order.class))).thenReturn(Mono.just(order));
         when(orderItemRepository.save(any(OrderItem.class))).thenReturn(Mono.just(orderItem));

@@ -3,6 +3,7 @@ package ru.practicum.java.internet_shop_project.service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import ru.practicum.java.internet_shop_project.config.EmbeddedRedisConfiguration;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
@@ -25,6 +27,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@Import(EmbeddedRedisConfiguration.class)
 public class ProductServiceIntegrationTest {
 
     @Autowired
@@ -35,14 +38,14 @@ public class ProductServiceIntegrationTest {
 
     @Test
     void testGetProductById_success() {
-        Product savedProduct = new Product(null, "Laptop", "testUrl", "Some laptop", BigDecimal.valueOf(1500));
+        Product savedProduct = new Product(null, "New Laptop", "testUrl", "Some laptop", BigDecimal.valueOf(1500));
 
         StepVerifier.create(productRepository.save(savedProduct)
                         .flatMap(saved -> productService.getProductById(saved.getId())))
                 .assertNext(foundProduct -> {
                     assertThat(foundProduct).isNotNull();
                     assertThat(foundProduct.getId()).isEqualTo(savedProduct.getId());
-                    assertThat(foundProduct.getName()).isEqualTo("Laptop");
+                    assertThat(foundProduct.getName()).isEqualTo("New Laptop");
                 })
                 .verifyComplete();
     }
@@ -57,13 +60,13 @@ public class ProductServiceIntegrationTest {
 
     @Test
     void testGetFilteredAndSortedProducts_success() {
-        Product product1 = new Product(null, "Laptop", "testUrl", "Some laptop", BigDecimal.valueOf(1500));
-        Product product2 = new Product(null, "Phone", "testUrl", "Some phone", BigDecimal.valueOf(750));
+        Product product1 = new Product(null, "Some Laptop", "testUrl", "Some laptop", BigDecimal.valueOf(1500));
+        Product product2 = new Product(null, "Some Phone", "testUrl", "Some phone", BigDecimal.valueOf(760));
 
         StepVerifier.create(productRepository.saveAll(Flux.just(product1, product2)).thenMany(
                         productService.getFilteredAndSortedProducts(
-                                "", BigDecimal.valueOf(100), BigDecimal.valueOf(1000), 0, 10, "name", "asc")))
-                .assertNext(foundProduct -> assertThat(foundProduct.getName()).isEqualTo("Phone"))
+                                "", BigDecimal.valueOf(750), BigDecimal.valueOf(770), 0, 10, "name", "asc")))
+                .assertNext(foundProduct -> assertThat(foundProduct.getName()).isEqualTo("Some Phone"))
                 .verifyComplete();
     }
 

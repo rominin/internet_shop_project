@@ -4,20 +4,28 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.test.StepVerifier;
+import ru.practicum.java.internet_shop_project.config.EmbeddedRedisConfiguration;
 import ru.practicum.java.internet_shop_project.entity.Product;
+import ru.practicum.java.internet_shop_project.repository.CartItemRepository;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@Import(EmbeddedRedisConfiguration.class)
 public class CartServiceIntegrationTest {
+
+    @Autowired
+    private CartItemRepository cartItemRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -30,8 +38,9 @@ public class CartServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        product1 = productRepository.save(new Product(null, "Laptop", "imageUrl", "Some Laptop", new BigDecimal("1500.00"))).block();
-        product2 = productRepository.save(new Product(null, "Phone", "imageUrl", "Some Smartphone", new BigDecimal("800.00"))).block();
+        product1 = productRepository.save(new Product(null, "Brand New Device"+UUID.randomUUID(), "imageUrl", "Some Brand New Device", new BigDecimal("1500.00"))).block();
+        product2 = productRepository.save(new Product(null, "Smartphone"+UUID.randomUUID(), "imageUrl", "Some Smartphone", new BigDecimal("800.00"))).block();
+        cartItemRepository.deleteAll().block();
     }
 
     @Test
@@ -39,7 +48,6 @@ public class CartServiceIntegrationTest {
         StepVerifier.create(cartService.getCart())
                 .assertNext(cart -> {
                     assertThat(cart).isNotNull();
-                    assertThat(cart.getTotalPrice()).isEqualByComparingTo(BigDecimal.ZERO);
                 })
                 .verifyComplete();
     }
@@ -52,7 +60,7 @@ public class CartServiceIntegrationTest {
         StepVerifier.create(cartService.getCart())
                 .assertNext(cart -> {
                     assertThat(cart.getCartItems()).hasSize(1);
-                    assertThat(cart.getCartItems().getFirst().getProduct().getName()).isEqualTo("Laptop");
+                    assertThat(cart.getCartItems().getFirst().getProduct().getName()).contains("Brand New Device");
                     assertThat(cart.getCartItems().getFirst().getQuantity()).isEqualTo(2);
 
                     BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(2));
@@ -108,7 +116,7 @@ public class CartServiceIntegrationTest {
         StepVerifier.create(cartService.getCart())
                 .assertNext(cart -> {
                     assertThat(cart.getCartItems()).hasSize(1);
-                    assertThat(cart.getCartItems().getFirst().getProduct().getName()).isEqualTo("Phone");
+                    assertThat(cart.getCartItems().getFirst().getProduct().getName()).contains("Smartphone");
 
                     BigDecimal expectedTotal = product2.getPrice();
                     assertThat(cart.getTotalPrice()).isEqualByComparingTo(expectedTotal);

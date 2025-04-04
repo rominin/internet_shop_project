@@ -36,6 +36,9 @@ public class CartServiceUnitTest {
     @MockitoBean
     private ProductRepository productRepository;
 
+    @MockitoBean
+    private ProductService productService;
+
     @Autowired
     private CartService cartService;
 
@@ -49,7 +52,7 @@ public class CartServiceUnitTest {
 
         when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(cart));
         when(cartItemRepository.findByCartId(SINGLETON_CART_ID)).thenReturn(Flux.just(cartItem));
-        when(productRepository.findById(101L)).thenReturn(Mono.just(product));
+        when(productService.getProductById(101L)).thenReturn(Mono.just(product));
         when(cartRepository.save(any(Cart.class))).thenReturn(Mono.just(cart));
 
         StepVerifier.create(cartService.getCart())
@@ -105,6 +108,7 @@ public class CartServiceUnitTest {
         when(cartRepository.findById(SINGLETON_CART_ID)).thenReturn(Mono.just(cart));
         when(cartRepository.save(any(Cart.class))).thenReturn(Mono.just(cart));
 
+        when(productService.getProductById(product.getId())).thenReturn(Mono.just(product));
         when(productRepository.findById(product.getId())).thenReturn(Mono.just(product));
         when(cartItemRepository.findByProductIdAndCartId(product.getId(), SINGLETON_CART_ID)).thenReturn(Mono.just(cartItem));
         when(cartItemRepository.save(any(CartItem.class))).thenReturn(Mono.just(cartItem));

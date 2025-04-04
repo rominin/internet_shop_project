@@ -20,6 +20,9 @@ public class ProductServiceUnitTest {
     @MockitoBean
     private ProductRepository productRepository;
 
+    @MockitoBean
+    private RedisCacheService redisCacheService;
+
     @Autowired
     private ProductService productService;
 
@@ -27,17 +30,21 @@ public class ProductServiceUnitTest {
     void testGetProductById_WhenProductExists() {
         Product product = new Product(1L, "Laptop", "testUrl", "Some laptop", BigDecimal.valueOf(1500));
 
+        when(redisCacheService.getProductById(1L)).thenReturn(Mono.empty());
         when(productRepository.findById(1L)).thenReturn(Mono.just(product));
+        when(redisCacheService.cacheProduct(product)).thenReturn(Mono.empty());
 
         StepVerifier.create(productService.getProductById(1L))
                 .expectNextMatches(p -> p.getName().equals("Laptop") && p.getPrice().compareTo(BigDecimal.valueOf(1500)) == 0)
                 .verifyComplete();
 
         verify(productRepository, times(1)).findById(1L);
+        verify(redisCacheService).cacheProduct(product);
     }
 
     @Test
     void testGetProductById_WhenProductDoesNotExist() {
+        when(redisCacheService.getProductById(999L)).thenReturn(Mono.empty());
         when(productRepository.findById(999L)).thenReturn(Mono.empty());
 
         StepVerifier.create(productService.getProductById(999L))
