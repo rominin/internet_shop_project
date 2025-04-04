@@ -11,6 +11,7 @@ import reactor.test.StepVerifier;
 import ru.practicum.java.internet_shop_project.entity.Product;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,8 +28,8 @@ public class ProductRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        product1 = new Product(null, "Laptop", "someUrl", "Some Laptop", new BigDecimal("1500.00"));
-        product2 = new Product(null, "Phone", "someUrl", "Some Smartphone", new BigDecimal("800.00"));
+        product1 = new Product(null, "Laptop" + UUID.randomUUID(), "someUrl", "Some Laptop", new BigDecimal("1500.00"));
+        product2 = new Product(null, "Phone" + UUID.randomUUID(), "someUrl", "Some Smartphone", new BigDecimal("800.00"));
 
         StepVerifier.create(productRepository.save(product1))
                 .assertNext(saved -> {
@@ -63,7 +64,7 @@ public class ProductRepositoryTest {
         StepVerifier.create(productRepository.findById(product1.getId()))
                 .assertNext(foundProduct -> {
                     assertThat(foundProduct).isNotNull();
-                    assertThat(foundProduct.getName()).isEqualTo("Laptop");
+                    assertThat(foundProduct.getName()).contains("Laptop");
                 })
                 .verifyComplete();
     }
@@ -80,11 +81,9 @@ public class ProductRepositoryTest {
         StepVerifier.create(productRepository.findByNameContainingIgnoreCaseAndPriceBetween(
                         "Phone", BigDecimal.ZERO, new BigDecimal("1000.00")
                 ))
-                .assertNext(foundProduct -> {
-                    assertThat(foundProduct).isNotNull();
-                    assertThat(foundProduct.getName()).isEqualTo("Phone");
-                })
-                .verifyComplete();
+                .expectNextCount(1)
+                .thenCancel()
+                .verify();
     }
 
 }

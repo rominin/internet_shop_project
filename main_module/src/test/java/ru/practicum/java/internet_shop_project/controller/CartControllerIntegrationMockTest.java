@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import ru.practicum.java.internet_shop_project.client.PaymentClient;
 import ru.practicum.java.internet_shop_project.controllers.CartController;
 import ru.practicum.java.internet_shop_project.dto.CartItemDto;
 import ru.practicum.java.internet_shop_project.dto.CartWithItemsDto;
@@ -25,6 +26,9 @@ public class CartControllerIntegrationMockTest {
     @MockitoBean
     private CartService cartService;
 
+    @MockitoBean
+    private PaymentClient paymentClient;
+
     @Autowired
     private WebTestClient webTestClient;
 
@@ -35,6 +39,7 @@ public class CartControllerIntegrationMockTest {
         CartWithItemsDto cartDto = new CartWithItemsDto(cart, List.of(cartItem));
 
         when(cartService.getCart()).thenReturn(Mono.just(cartDto));
+        when(paymentClient.getBalance()).thenReturn(Mono.just(BigDecimal.valueOf(1000)));
 
         webTestClient.get()
                 .uri("/cart")

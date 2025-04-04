@@ -14,6 +14,7 @@ import ru.practicum.java.internet_shop_project.entity.CartItem;
 import ru.practicum.java.internet_shop_project.entity.Product;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -36,8 +37,8 @@ public class CartItemRepositoryTest {
     @BeforeEach
     void setUp() {
         cart = new Cart();
-        product1 = new Product(null, "Laptop", "someUrl", "Some Laptop", new BigDecimal("1500.00"));
-        product2 = new Product(null, "Phone", "someUrl", "Some Smartphone", new BigDecimal("800.00"));
+        product1 = new Product(null, "Laptop" + UUID.randomUUID(), "someUrl", "Some Laptop", new BigDecimal("1500.00"));
+        product2 = new Product(null, "Phone" + UUID.randomUUID(), "someUrl", "Some Smartphone", new BigDecimal("800.00"));
 
         StepVerifier.create(
                 cartRepository.save(cart)

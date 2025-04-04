@@ -9,6 +9,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.controllers.ProductController;
+import ru.practicum.java.internet_shop_project.dto.ProductListItemDto;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.service.ProductService;
 
@@ -31,12 +32,12 @@ public class ProductControllerIntegrationMockTest {
 
     @Test
     void testGetProducts_success() {
-        List<Product> products = List.of(
-                new Product(1L, "Laptop", "someUrl", "Some Laptop", new BigDecimal("1500.00")),
-                new Product(2L, "Phone", "someUrl", "Some Smartphone", new BigDecimal("800.00"))
+        List<ProductListItemDto> products = List.of(
+                new ProductListItemDto(1L, "Laptop", "Some Laptop", new BigDecimal("1500.00"), "someUrl"),
+                new ProductListItemDto(2L, "Phone", "Some Smartphone", new BigDecimal("800.00"), "someUrl")
         );
 
-        when(productService.getFilteredAndSortedProducts(any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        when(productService.getFilteredAndSortedProductsWithCaching(any(), any(), any(), anyInt(), anyInt(), any(), any()))
                 .thenReturn(Flux.fromIterable(products));
 
         webTestClient.get()

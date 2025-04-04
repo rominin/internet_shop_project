@@ -12,6 +12,7 @@ import ru.practicum.java.internet_shop_project.entity.OrderItem;
 import ru.practicum.java.internet_shop_project.entity.Product;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -41,9 +42,9 @@ public class OrderItemRepositoryTest {
 
     @Test
     void testFindByOrderId_success() {
-        Product product1 = productRepository.save(new Product(null, "Laptop", "imageUrl", "Some Laptop", new BigDecimal("1500.00")))
+        Product product1 = productRepository.save(new Product(null, "Laptop" + UUID.randomUUID(), "imageUrl", "Some Laptop", new BigDecimal("1500.00")))
                 .block();
-        Product product2 = productRepository.save(new Product(null, "Phone", "imageUrl", "Some Smartphone", new BigDecimal("800.00")))
+        Product product2 = productRepository.save(new Product(null, "Phone" + UUID.randomUUID(), "imageUrl", "Some Smartphone", new BigDecimal("800.00")))
                 .block();
 
         OrderItem orderItem1 = new OrderItem(null, orderId, product1.getId(), 2);

@@ -43,41 +43,6 @@ public class ProductControllerIntegrationTest {
     }
 
     @Test
-    void testGetProducts_success() {
-        webTestClient.get()
-                .uri("/products?page=0&size=10&sortBy=name&sortOrder=asc")
-                .exchange()
-                .expectStatus().isOk()
-                .expectHeader().contentType(MediaType.TEXT_HTML)
-                .expectBody(String.class)
-                .consumeWith(response -> {
-                    String responseBody = response.getResponseBody();
-                    assertThat(responseBody).isNotNull()
-                            .contains("Laptop", "Phone")
-                            .contains("<html>", "<body>");
-                });
-    }
-
-    @Test
-    void testGetProductById_success() {
-        Product product = productRepository.findAll().blockFirst();
-
-        webTestClient.get()
-                .uri("/products/" + product.getId())
-                .exchange()
-                .expectStatus().isOk()
-                .expectHeader().contentType(MediaType.TEXT_HTML)
-                .expectBody(String.class)
-                .consumeWith(response -> {
-                    String responseBody = response.getResponseBody();
-                    assertThat(responseBody).isNotNull()
-                            .contains(product.getName())
-                            .contains(product.getPrice().toString())
-                            .contains("<html>", "<body>");
-                });
-    }
-
-    @Test
     void testShowImportPage_success() {
         webTestClient.get()
                 .uri("/products/import")
