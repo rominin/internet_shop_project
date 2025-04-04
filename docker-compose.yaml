@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    container_name: shop-db-3
+    restart: always
+    environment:
+      POSTGRES_DB: shop_db_v3
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: shop-redis-3
+    restart: always
+    ports:
+      - "6379:6379"
+
+  payment-service:
+    build:
+      context: ./payment_service
+      dockerfile: Dockerfile
+    container_name: shop-payment-service
+    ports:
+      - "8081:8081"
+    restart: always
+
+  app:
+    build:
+      context: ./main_module
+      dockerfile: Dockerfile
+    container_name: shop-app-3
+    depends_on:
+      - db
+      - redis
+      - payment-service
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://db:5432/shop_db_v3
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      SPRING_FLYWAY_URL: jdbc:postgresql://db:5432/shop_db_v3
+      SPRING_FLYWAY_USER: postgres
+      SPRING_FLYWAY_PASSWORD: postgres
+      PAYMENT_SERVICE_URL: http://payment-service:8081
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    restart: always
+
+volumes:
+  postgres_data:
