@@ -1,6 +1,7 @@
 package ru.practicum.java.internet_shop_project.controllers;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
@@ -8,6 +9,7 @@ import org.springframework.web.reactive.result.view.Rendering;
 import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
 import ru.practicum.java.internet_shop_project.service.OrderService;
+import ru.practicum.java.internet_shop_project.service.UserContextService;
 
 import java.nio.charset.StandardCharsets;
 
@@ -18,11 +20,15 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    private final UserContextService userContextService;
+
     @GetMapping
-    public Mono<Rendering> getAllOrders() {
-        return orderService.getAllOrders(1L)// TODO real Id
-                .collectList()
-                .zipWith(orderService.getTotalOrdersPrice(1L))// TODO real Id
+    public Mono<Rendering> getAllOrders(Authentication authentication) {
+        return userContextService.getCurrentUserId(authentication)
+                .flatMap(userId -> orderService.getAllOrders(userId)
+                        .collectList()
+                        .zipWith(orderService.getTotalOrdersPrice(userId))
+                )
                 .map(tuple -> Rendering.view("orders")
                         .modelAttribute("orders", tuple.getT1())
                         .modelAttribute("totalOrdersPrice", tuple.getT2())
@@ -31,8 +37,9 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    public Mono<Rendering> getOrderById(@PathVariable Long orderId) {
-        return orderService.getOrderById(orderId, 1L)// TODO real Id
+    public Mono<Rendering> getOrderById(@PathVariable Long orderId, Authentication authentication) {
+        return userContextService.getCurrentUserId(authentication)
+                .flatMap(userId -> orderService.getOrderById(orderId, userId))
                 .map(order -> Rendering.view("order")
                         .modelAttribute("order", order)
                         .build()
@@ -40,8 +47,9 @@ public class OrderController {
     }
 
     @PostMapping("/checkout")
-    public Mono<Rendering> checkoutOrder() {
-        return orderService.createOrderFromCart(1L)// TODO real Id
+    public Mono<Rendering> checkoutOrder(Authentication authentication) {
+        return userContextService.getCurrentUserId(authentication)
+                .flatMap(orderService::createOrderFromCart)
                 .map(order -> Rendering.view("redirect:/orders/" + order.getId()).build())
                 .onErrorResume(e -> {
                     String message = e instanceof WebClientRequestException

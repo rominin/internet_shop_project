@@ -42,6 +42,13 @@ spring:
             # ^ == V
             issuer-uri: http://localhost:8085/realms/internet-shop
         registration:
+          keycloak:
+            authorizationGrantType: authorization_code
+            provider: keycloak
+            client-id: main_module
+            client-secret: yHZGvxZNnv2MzyGRjr1a2IG4K5c1825z
+            redirect-uri: '{baseUrl}/{action}/oauth2/code/{registrationId}'
+            scope: openid, profile, email
           payment-service-client: # Описание клиента OAuth2
             authorizationGrantType: client_credentials
             provider: keycloak

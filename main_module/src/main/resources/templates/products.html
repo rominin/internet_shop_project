@@ -10,6 +10,7 @@
 <p class="top-right"><a href="/cart">Перейти в корзину</a></p>
 <p class="top-right"><a href="/orders">К заказам</a></p>
 <p class="top-right"><a href="/products/import">Импорт продуктов (админ панель)</a></p>
+<p class="top-right"><a href="/logout">Выйти</a></p>
 
 <form method="get" action="#" th:action="@{/products}">
     <label for="search">Поиск по названию:</label>
@@ -62,18 +63,18 @@
             <form method="post" th:action="@{/cart/add}" style="display:inline;">
                 <input type="hidden" name="productId" th:value="${product.id}">
                 <input type="hidden" name="quantity" value="1">
-                <button type="submit">Добавить в корзину</button>
+                <button type="submit"th:disabled="${!isAuthenticated}">Добавить в корзину</button>
             </form>
 
             <form method="post" th:action="@{/cart/remove}" style="display:inline;">
                 <input type="hidden" name="productId" th:value="${product.id}">
-                <button type="submit">Удалить из корзины</button>
+                <button type="submit" th:disabled="${!isAuthenticated}">Удалить из корзины</button>
             </form>
 
             <form method="post" th:action="@{/cart/update}" style="display:inline;">
                 <input type="hidden" name="productId" th:value="${product.id}">
                 <input type="number" name="quantity" min="1" value="1">
-                <button type="submit">Обновить количество</button>
+                <button type="submit" th:disabled="${!isAuthenticated}">Обновить количество</button>
             </form>
         </td>
     </tr>
