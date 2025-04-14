@@ -4,21 +4,19 @@ import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
-import java.math.BigDecimal;
-
-@Table(name = "orders")
+@Table(name = "users")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Order {
+public class User {
 
     @Id
     private Long id;
 
-    private Long userId;
+    private String username;
 
-    private BigDecimal totalPrice;
+    private String role;
 
 }

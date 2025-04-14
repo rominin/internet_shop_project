@@ -20,9 +20,9 @@ public class OrderController {
 
     @GetMapping
     public Mono<Rendering> getAllOrders() {
-        return orderService.getAllOrders()
+        return orderService.getAllOrders(1L)// TODO real Id
                 .collectList()
-                .zipWith(orderService.getTotalOrdersPrice())
+                .zipWith(orderService.getTotalOrdersPrice(1L))// TODO real Id
                 .map(tuple -> Rendering.view("orders")
                         .modelAttribute("orders", tuple.getT1())
                         .modelAttribute("totalOrdersPrice", tuple.getT2())
@@ -32,7 +32,7 @@ public class OrderController {
 
     @GetMapping("/{orderId}")
     public Mono<Rendering> getOrderById(@PathVariable Long orderId) {
-        return orderService.getOrderById(orderId)
+        return orderService.getOrderById(orderId, 1L)// TODO real Id
                 .map(order -> Rendering.view("order")
                         .modelAttribute("order", order)
                         .build()
@@ -41,7 +41,7 @@ public class OrderController {
 
     @PostMapping("/checkout")
     public Mono<Rendering> checkoutOrder() {
-        return orderService.createOrderFromCart()
+        return orderService.createOrderFromCart(1L)// TODO real Id
                 .map(order -> Rendering.view("redirect:/orders/" + order.getId()).build())
                 .onErrorResume(e -> {
                     String message = e instanceof WebClientRequestException

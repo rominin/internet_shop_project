@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class OrderService {
 
-    private static final Long SINGLETON_CARD_ID = 1L;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final CartRepository cartRepository;
@@ -28,8 +27,8 @@ public class OrderService {
     private final OrderItemMapper orderItemMapper;
     private final PaymentClient paymentClient;
 
-    public Flux<OrderWithItemsDto> getAllOrders() {
-        return orderRepository.findAll()
+    public Flux<OrderWithItemsDto> getAllOrders(Long userId) {
+        return orderRepository.findAllByUserId(userId)
                 .flatMap(order ->
                         orderItemMapper.toDtoList(orderItemRepository.findByOrderId(order.getId()))
                                 .collectList()
@@ -37,8 +36,8 @@ public class OrderService {
                 );
     }
 
-    public Mono<OrderWithItemsDto> getOrderById(Long orderId) {
-        return orderRepository.findById(orderId)
+    public Mono<OrderWithItemsDto> getOrderById(Long orderId, Long userId) {
+        return orderRepository.findByIdAndUserId(orderId, userId)
                 .switchIfEmpty(Mono.error(new RuntimeException("Order not found")))
                 .flatMap(order ->
                         orderItemMapper.toDtoList(orderItemRepository.findByOrderId(order.getId()))
@@ -47,8 +46,8 @@ public class OrderService {
                 );
     }
 
-    public Mono<Order> createOrderFromCart() {
-        return cartRepository.findById(SINGLETON_CARD_ID)
+    public Mono<Order> createOrderFromCart(Long userId) {
+        return cartRepository.findByUserId(userId)
                 .switchIfEmpty(Mono.error(new RuntimeException("Cart not found")))
                 .flatMap(cart -> {
                     if (cart.getTotalPrice().compareTo(BigDecimal.ZERO) == 0) {
@@ -62,23 +61,24 @@ public class OrderService {
                                 }
 
                                 Order order = Order.builder()
+                                        .userId(userId)
                                         .totalPrice(cart.getTotalPrice())
                                         .build();
 
                                 return orderRepository.save(order)
-                                        .flatMap(savedOrder -> cartItemRepository.findByCartId(SINGLETON_CARD_ID)
+                                        .flatMap(savedOrder -> cartItemRepository.findByCartId(cart.getId())
                                                 .flatMap(cartItem -> {
                                                     OrderItem orderItem = new OrderItem(null, savedOrder.getId(), cartItem.getProductId(), cartItem.getQuantity());
                                                     return orderItemRepository.save(orderItem);
                                                 })
-                                                .then(cartItemRepository.clearCartItems(SINGLETON_CARD_ID))
+                                                .then(cartItemRepository.clearCartItems(cart.getId()))
                                                 .thenReturn(savedOrder));
                             });
                 });
     }
 
-    public Mono<BigDecimal> getTotalOrdersPrice() {
-        return orderRepository.findAll()
+    public Mono<BigDecimal> getTotalOrdersPrice(Long userId) {
+        return orderRepository.findAllByUserId(userId)
                 .map(Order::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }

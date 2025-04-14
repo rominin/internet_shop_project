@@ -18,15 +18,14 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class CartService {
 
-    private static final Long SINGLETON_CARD_ID = 1L;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final ProductService productService;
 
-    public Mono<CartWithItemsDto> getCart() {
-        return cartRepository.findById(SINGLETON_CARD_ID)
-                .switchIfEmpty(cartRepository.save(new Cart()))
+    public Mono<CartWithItemsDto> getCart(Long userId) {
+        return cartRepository.findByUserId(userId)
+                .switchIfEmpty(cartRepository.save(new Cart(userId)))
                 .flatMap(cart -> cartItemRepository.findByCartId(cart.getId())
                         .flatMap(cartItem ->
                                 productService.getProductById(cartItem.getProductId())
@@ -42,17 +41,14 @@ public class CartService {
                 );
     }
 
-    public Flux<CartItem> getCartItems() {
-        return cartItemRepository.findByCartId(SINGLETON_CARD_ID);
-    }
 
-    public Mono<Void> addProductToCart(Long productId, Integer quantity) {
+    public Mono<Void> addProductToCart(Long userId, Long productId, Integer quantity) {
         if (quantity <= 0) {
             return Mono.error(new IllegalArgumentException("Product quantity must be greater than 0"));
         }
 
         return Mono.zip(
-                getCart(),
+                getCart(userId),
                 productRepository.findById(productId).switchIfEmpty(Mono.error(new RuntimeException("Product not found")))
         ).flatMap(tuple -> {
             CartWithItemsDto cartWithItems = tuple.getT1();
@@ -67,33 +63,31 @@ public class CartService {
         });
     }
 
-    public Mono<Void> removeProductFromCart(Long productId) {
-        return cartItemRepository.removeItemFromCart(SINGLETON_CARD_ID, productId)
-                .then(updateCartTotalPrice(SINGLETON_CARD_ID));
+    public Mono<Void> removeProductFromCart(Long userId, Long productId) {
+        return getCart(userId)
+                .flatMap(cart -> cartItemRepository.removeItemFromCart(cart.getId(), productId)
+                        .then(updateCartTotalPrice(cart.getId()))
+                );
     }
 
-    public Mono<Void> updateQuantity(Long productId, Integer quantity) {
+    public Mono<Void> updateQuantity(Long userId, Long productId, Integer quantity) {
         if (quantity < 0) {
             return Mono.error(new IllegalArgumentException("Product quantity must be greater than 0"));
         }
 
-        return cartItemRepository.findByProductIdAndCartId(productId, SINGLETON_CARD_ID)
-                .switchIfEmpty(Mono.error(new RuntimeException("Product not found")))
-                .flatMap(cartItem -> {
-                    if (quantity == 0) {
-                        return cartItemRepository.removeItemFromCart(SINGLETON_CARD_ID, productId);
-                    } else {
-                        cartItem.setQuantity(quantity);
-                        return cartItemRepository.save(cartItem);
-                    }
-                }).then(updateCartTotalPrice(SINGLETON_CARD_ID));
-    }
-
-    public Mono<BigDecimal> getTotalPrice() {
-        return getCartItems()
-                .flatMap(cartItem -> productRepository.findById(cartItem.getProductId())
-                        .map(product -> product.getPrice().multiply(new BigDecimal(cartItem.getQuantity()))))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return getCart(userId)
+                .flatMap(cart -> cartItemRepository.findByProductIdAndCartId(productId, cart.getId())
+                        .switchIfEmpty(Mono.error(new RuntimeException("Product not found")))
+                        .flatMap(cartItem -> {
+                            if (quantity == 0) {
+                                return cartItemRepository.removeItemFromCart(cart.getId(), productId);
+                            } else {
+                                cartItem.setQuantity(quantity);
+                                return cartItemRepository.save(cartItem);
+                            }
+                        })
+                        .then(updateCartTotalPrice(cart.getId()))
+                );
     }
 
     private Mono<Void> updateCartTotalPrice(Long cartId) {

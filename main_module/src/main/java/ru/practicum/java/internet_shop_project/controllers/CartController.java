@@ -26,7 +26,7 @@ public class CartController {
 
     @GetMapping
     public Mono<Rendering> getCart(@RequestParam(name = "errorMessage", required = false) String errorMessage) {
-        return cartService.getCart()
+        return cartService.getCart(1L)  // TODO real Id
                 .zipWith(paymentClient.getBalance()
                         .onErrorResume(ex -> Mono.just(BigDecimal.valueOf(-1)))
                 )
@@ -71,7 +71,7 @@ public class CartController {
                         Integer quantity = Integer.parseInt(tuple.getT2());
                         String referer = tuple.getT3();
 
-                        return cartService.addProductToCart(productId, quantity)
+                        return cartService.addProductToCart(1L, productId, quantity)// TODO real Id
                                 .then(Mono.just(Rendering.view(referer != null ? "redirect:" + referer : "redirect:/cart").build()));
                     });
                 });
@@ -88,7 +88,7 @@ public class CartController {
                                 Long productId = Long.parseLong(productIdStr);
                                 String referer = exchange.getRequest().getHeaders().getFirst("Referer");
 
-                                return cartService.removeProductFromCart(productId)
+                                return cartService.removeProductFromCart(1L, productId)// TODO real Id
                                         .then(Mono.just(Rendering.view(referer != null ? "redirect:" + referer : "redirect:/cart").build()));
                             });
                 });
@@ -110,7 +110,7 @@ public class CartController {
                         Integer quantity = Integer.parseInt(tuple.getT2());
                         String referer = tuple.getT3();
 
-                        return cartService.updateQuantity(productId, quantity)
+                        return cartService.updateQuantity(1L, productId, quantity)// TODO real Id
                                 .then(Mono.just(Rendering.view(referer != null ? "redirect:" + referer : "redirect:/cart").build()));
                     });
                 });

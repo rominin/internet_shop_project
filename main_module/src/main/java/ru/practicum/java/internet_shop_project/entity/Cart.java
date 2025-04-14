@@ -15,9 +15,16 @@ public class Cart {
     @Id
     private Long id;
 
+    private Long userId;
+
     private BigDecimal totalPrice;
 
     public Cart() {
+        this.totalPrice = BigDecimal.ZERO;
+    }
+
+    public Cart(Long userId) {
+        this.userId = userId;
         this.totalPrice = BigDecimal.ZERO;
     }
 
