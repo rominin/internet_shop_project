@@ -3,34 +3,40 @@ package ru.practicum.java.payment_service.service;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import ru.practicum.java.payment_service.config.PaymentProperties;
+import ru.practicum.java.payment_service.entity.UserBalance;
+import ru.practicum.java.payment_service.repository.UserBalanceRepository;
 
 import java.math.BigDecimal;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class PaymentService {
 
-    private final AtomicReference<BigDecimal> balance;
+    private final UserBalanceRepository userBalanceRepository;
+    private final PaymentProperties paymentProperties;
 
-    public PaymentService(PaymentProperties paymentProperties) {
-        this.balance = new AtomicReference<>(paymentProperties.getInitialBalance());
+    public PaymentService(PaymentProperties paymentProperties, UserBalanceRepository userBalanceRepository) {
+        this.userBalanceRepository = userBalanceRepository;
+        this.paymentProperties = paymentProperties;
     }
 
-    public Mono<BigDecimal> getBalance() {
-        return Mono.just(balance.get());
+    public Mono<BigDecimal> getBalance(Long userId) {
+        return userBalanceRepository.findByUserId(userId)
+                .switchIfEmpty(userBalanceRepository.save(new UserBalance(userId, paymentProperties.getInitialBalance())))
+                .map(UserBalance::getBalance);
     }
 
-    public Mono<Boolean> pay(BigDecimal amount) {
-        return Mono.fromSupplier(() -> {
-                    BigDecimal currentBalance = balance.get();
-                    if (currentBalance.compareTo(amount) >= 0) {
-                        balance.set(currentBalance.subtract(amount));
-                        return true;
+    public Mono<Boolean> pay(Long userId, BigDecimal amount) {
+        return userBalanceRepository.findByUserId(userId)
+                .switchIfEmpty(userBalanceRepository.save(new UserBalance(userId, paymentProperties.getInitialBalance())))
+                .flatMap(userBalance -> {
+                    BigDecimal balance = userBalance.getBalance();
+                    if (balance.compareTo(amount) >= 0) {
+                        userBalance.setBalance(balance.subtract(amount));
+                        return userBalanceRepository.save(userBalance).thenReturn(true);
                     } else {
-                        return false;
+                        return Mono.just(false);
                     }
-                }
-        );
+                });
     }
 
 }

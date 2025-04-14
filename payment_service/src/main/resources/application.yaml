@@ -2,6 +2,11 @@ spring:
   application:
     name: payment_service
 
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/shop_db_v3
+    username: postgres
+    password: postgres
+
 server:
   port: 8081
 

@@ -21,14 +21,14 @@ public class PaymentController implements DefaultApi {
 
     @Override
     public Mono<ResponseEntity<BalanceResponse>> getBalance(ServerWebExchange exchange) {
-        return paymentService.getBalance()
+        return paymentService.getBalance(1L)// TODO real Id
                 .map(balance -> ResponseEntity.ok(new BalanceResponse().amount(balance)));
     }
 
     @Override
     public Mono<ResponseEntity<PaymentResponse>> makePayment(Mono<PaymentRequest> paymentRequest, ServerWebExchange exchange) {
         return paymentRequest
-                .flatMap(request -> paymentService.pay(request.getAmount())
+                .flatMap(request -> paymentService.pay(1L, request.getAmount())// TODO real Id
                         .map(success -> {
                             PaymentResponse paymentResponse = new PaymentResponse()
                                     .status(success ? PaymentResponse.StatusEnum.OK : PaymentResponse.StatusEnum.FAILED);
