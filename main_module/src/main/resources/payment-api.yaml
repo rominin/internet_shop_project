@@ -8,6 +8,13 @@ paths:
     get:
       summary: Get actual balance
       operationId: getBalance
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: integer
+            format: int64
       responses:
         '200':
           description: Successful response
@@ -48,7 +55,13 @@ components:
 
     PaymentRequest:
       type: object
+      required:
+        - userId
+        - amount
       properties:
+        userId:
+          type: integer
+          format: int64
         amount:
           type: number
 

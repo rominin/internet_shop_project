@@ -17,13 +17,13 @@ public class PaymentClient {
         this.paymentApi = paymentApi;
     }
 
-    public Mono<BigDecimal> getBalance() {
-        return paymentApi.getBalance()
+    public Mono<BigDecimal> getBalance(Long userId) {
+        return paymentApi.getBalance(userId)
                 .map(response -> response.getAmount() != null ? response.getAmount() : BigDecimal.ZERO);
     }
 
-    public Mono<Boolean> makePayment(BigDecimal amount) {
-        PaymentRequest request = new PaymentRequest().amount(amount);
+    public Mono<Boolean> makePayment(Long userId, BigDecimal amount) {
+        PaymentRequest request = new PaymentRequest().userId(userId).amount(amount);
         return paymentApi.makePayment(request)
                 .map(response -> response.getStatus() == PaymentResponse.StatusEnum.OK);
     }
