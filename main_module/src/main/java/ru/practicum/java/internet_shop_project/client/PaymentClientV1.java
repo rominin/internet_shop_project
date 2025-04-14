@@ -9,11 +9,12 @@ import ru.practicum.java.paymentclient.model.PaymentResponse;
 import java.math.BigDecimal;
 
 @Service
-public class PaymentClient {
+@Deprecated
+public class PaymentClientV1 {
 
     private final DefaultApi paymentApi;
 
-    public PaymentClient(final DefaultApi paymentApi) {
+    public PaymentClientV1(final DefaultApi paymentApi) {
         this.paymentApi = paymentApi;
     }
 

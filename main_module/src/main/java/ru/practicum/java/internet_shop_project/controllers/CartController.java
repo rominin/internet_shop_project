@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.result.view.Rendering;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-import ru.practicum.java.internet_shop_project.client.PaymentClient;
+import ru.practicum.java.internet_shop_project.client.PaymentClientV2;
 import ru.practicum.java.internet_shop_project.dto.CartWithItemsDto;
 import ru.practicum.java.internet_shop_project.service.CartService;
 
@@ -22,12 +22,12 @@ public class CartController {
 
     private final CartService cartService;
 
-    private final PaymentClient paymentClient;
+    private final PaymentClientV2 paymentClient;
 
     @GetMapping
     public Mono<Rendering> getCart(@RequestParam(name = "errorMessage", required = false) String errorMessage) {
         return cartService.getCart(1L)  // TODO real Id
-                .zipWith(paymentClient.getBalance()
+                .zipWith(paymentClient.getBalance(1L)  // TODO real Id
                         .onErrorResume(ex -> Mono.just(BigDecimal.valueOf(-1)))
                 )
                 .map(tuple -> {

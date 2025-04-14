@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import ru.practicum.java.internet_shop_project.client.PaymentClient;
+import ru.practicum.java.internet_shop_project.client.PaymentClientV2;
 import ru.practicum.java.internet_shop_project.mappers.OrderItemMapper;
 import ru.practicum.java.internet_shop_project.dto.OrderWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Order;
@@ -25,7 +25,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final OrderItemMapper orderItemMapper;
-    private final PaymentClient paymentClient;
+    private final PaymentClientV2 paymentClient;
 
     public Flux<OrderWithItemsDto> getAllOrders(Long userId) {
         return orderRepository.findAllByUserId(userId)
@@ -54,7 +54,7 @@ public class OrderService {
                         return Mono.error(new RuntimeException("Cart is empty"));
                     }
 
-                    return paymentClient.makePayment(cart.getTotalPrice())
+                    return paymentClient.makePayment(userId, cart.getTotalPrice())
                             .flatMap(success -> {
                                 if (!success) {
                                     return Mono.error(new RuntimeException("Payment failed: not enough funds. Revisit cart (url should be clear: \"/cart\")"));

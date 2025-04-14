@@ -7,7 +7,8 @@ import ru.practicum.java.paymentclient.api.DefaultApi;
 import ru.practicum.java.paymentclient.invoker.ApiClient;
 
 @Configuration
-public class PaymentClientConfig {
+@Deprecated
+public class PaymentClientConfigV1 {
 
     @Value("${spring.payment-service-address}")
     public String paymentServiceAddress;

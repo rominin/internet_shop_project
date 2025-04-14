@@ -29,5 +29,26 @@ spring:
 
   cache-ttl: 3
 
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            user-name-attribute: sub
+            #authorization-uri: http://localhost:8085/realms/internet-shop/protocol/openid-connect/auth
+            #token-uri: http://localhost:8085/realms/internet-shop/protocol/openid-connect/token
+            #user-info-uri: http://localhost:8085/realms/internet-shop/protocol/openid-connect/userinfo
+            #jwk-set-uri: http://localhost:8085/realms/internet-shop/protocol/openid-connect/certs
+            # ^ == V
+            issuer-uri: http://localhost:8085/realms/internet-shop
+        registration:
+          payment-service-client: # Описание клиента OAuth2
+            authorizationGrantType: client_credentials
+            provider: keycloak
+            client-id: main_module_m2m
+            client-secret: Q5kWY3cRSkreImKDnKnsdCwyDib4mdtF
+            scope: openid, profile
+            clientAuthenticationMethod: client_secret_post # Способ передачи секрета
+
 server:
   port: 8080
