@@ -7,6 +7,12 @@ spring:
     username: postgres
     password: postgres
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8085/realms/internet-shop
+
 server:
   port: 8081
 
