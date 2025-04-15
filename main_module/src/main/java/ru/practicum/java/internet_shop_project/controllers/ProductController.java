@@ -53,22 +53,4 @@ public class ProductController {
                 );
     }
 
-    @GetMapping("/import")
-    public Mono<Rendering> showImportPage() {
-        return Mono.just(Rendering.view("import").build());
-    }
-
-    @PostMapping("/import")
-    public Mono<Rendering> importProducts(@RequestPart("file") FilePart filePart) {
-        return productService.importProductsFromCsv(filePart)
-                .then(Mono.just(
-                        Rendering.view("import")
-                                .modelAttribute("success", "Products imported successfully!")
-                                .build()))
-                .onErrorResume(e -> Mono.just(
-                        Rendering.view("import")
-                                .modelAttribute("error", "Error while importing products: " + e.getMessage())
-                                .build()));
-    }
-
 }
