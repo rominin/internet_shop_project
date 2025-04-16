@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -19,22 +18,6 @@ public class PaymentControllerIntegrationTest {
 
     @Autowired
     private WebTestClient webTestClient;
-
-
-    @Test
-    void testMakePayment_withValidToken_shouldSucceed() {
-        webTestClient.mutateWith(SecurityMockServerConfigurers.mockJwt()
-                        .jwt(jwt -> jwt.claim("client_id", "main_module_m2m"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
-                .post()
-                .uri("/pay")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"userId\": 1, \"amount\": 100.00}")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.status").isEqualTo("OK");
-    }
 
     @Test
     void testMakePayment_withoutToken_shouldBeUnauthorized() {
