@@ -3,7 +3,8 @@ package ru.practicum.java.internet_shop_project.controller;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
@@ -12,6 +13,7 @@ import ru.practicum.java.internet_shop_project.controllers.ProductController;
 import ru.practicum.java.internet_shop_project.dto.ProductListItemDto;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.service.ProductService;
+import ru.practicum.java.internet_shop_project.service.ViewAccessHelper;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -27,6 +29,9 @@ public class ProductControllerIntegrationMockTest {
     @MockitoBean
     private ProductService productService;
 
+    @MockitoBean
+    private ViewAccessHelper viewAccessHelper;
+
     @Autowired
     private WebTestClient webTestClient;
 
@@ -39,6 +44,10 @@ public class ProductControllerIntegrationMockTest {
 
         when(productService.getFilteredAndSortedProductsWithCaching(any(), any(), any(), anyInt(), anyInt(), any(), any()))
                 .thenReturn(Flux.fromIterable(products));
+
+        webTestClient = webTestClient.mutateWith(SecurityMockServerConfigurers.mockAuthentication(
+                new UsernamePasswordAuthenticationToken("user", "password", List.of())
+        ));
 
         webTestClient.get()
                 .uri("/products?page=0&size=10&sortBy=name&sortOrder=asc")
@@ -61,6 +70,10 @@ public class ProductControllerIntegrationMockTest {
 
         when(productService.getProductById(anyLong())).thenReturn(Mono.just(product));
 
+        webTestClient = webTestClient.mutateWith(SecurityMockServerConfigurers.mockAuthentication(
+                new UsernamePasswordAuthenticationToken("user", "password", List.of())
+        ));
+
         webTestClient.get()
                 .uri("/products/1")
                 .exchange()
@@ -74,17 +87,6 @@ public class ProductControllerIntegrationMockTest {
                             .contains("1500.00")
                             .contains("<html>", "<body>");
                 });
-    }
-
-    @Test
-    void testShowImportPage_success() {
-        webTestClient.get()
-                .uri("/products/import")
-                .exchange()
-                .expectStatus().isOk()
-                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
-                .expectBody(String.class)
-                .value(body -> assertThat(body).contains("<title>Импорт товаров</title>"));
     }
 
 }

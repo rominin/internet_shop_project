@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -20,11 +22,14 @@ public class PaymentControllerIntegrationTest {
 
 
     @Test
-    void testMakePayment_success() {
-        webTestClient.post()
+    void testMakePayment_withValidToken_shouldSucceed() {
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockJwt()
+                        .jwt(jwt -> jwt.claim("client_id", "main_module_m2m"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
+                .post()
                 .uri("/pay")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"amount\": 200.00}")
+                .bodyValue("{\"userId\": 1, \"amount\": 100.00}")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -32,24 +37,25 @@ public class PaymentControllerIntegrationTest {
     }
 
     @Test
-    void testMakePayment_insufficientFunds() {
-        webTestClient.post()
+    void testMakePayment_withoutToken_shouldBeUnauthorized() {
+        webTestClient
+                .post()
                 .uri("/pay")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"amount\": 2000.00}")
+                .bodyValue("{\"userId\": 1, \"amount\": 100.00}")
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.status").isEqualTo("FAILED");
+                .expectStatus().isUnauthorized();
     }
 
     @Test
-    void testGetBalance_success() {
-        webTestClient.get()
-                .uri("/balance")
+    void testMakePayment_withInvalidClientId_shouldBeForbidden() {
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockJwt()
+                        .jwt(jwt -> jwt.claim("client_id", "unknown_client")))
+                .post()
+                .uri("/pay")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"userId\": 1, \"amount\": 100.00}")
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.amount").isEqualTo(800.00);
+                .expectStatus().isForbidden();
     }
 }

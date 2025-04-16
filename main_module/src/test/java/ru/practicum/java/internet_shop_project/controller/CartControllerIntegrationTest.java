@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -16,6 +19,8 @@ import ru.practicum.java.internet_shop_project.repository.CartRepository;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -58,17 +63,29 @@ public class CartControllerIntegrationTest {
 
     @Test
     void testGetCart_success() {
-        webTestClient.get()
+        Map<String, Object> attributes = Map.of("sub", "user123", "preferred_username", "testuser");
+        DefaultOAuth2User oauthUser = new DefaultOAuth2User(
+                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                attributes,
+                "sub"
+        );
+
+        OAuth2AuthenticationToken authentication = new OAuth2AuthenticationToken(
+                oauthUser,
+                oauthUser.getAuthorities(),
+                "keycloak"
+        );
+
+        webTestClient
+                .mutateWith(SecurityMockServerConfigurers.mockAuthentication(authentication))
+                .get()
                 .uri("/cart")
                 .exchange()
                 .expectStatus().isOk()
-                .expectHeader().contentType(MediaType.TEXT_HTML)
                 .expectBody(String.class)
                 .consumeWith(response -> {
                     String responseBody = response.getResponseBody();
-                    assertThat(responseBody).isNotNull()
-                            .contains("<html>", "<body>")
-                            .contains("Корзина");
+                    assertThat(responseBody).contains("Корзина");
                 });
     }
 

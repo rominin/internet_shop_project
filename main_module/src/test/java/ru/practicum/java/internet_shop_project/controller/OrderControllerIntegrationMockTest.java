@@ -4,6 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
@@ -14,9 +18,11 @@ import ru.practicum.java.internet_shop_project.dto.OrderWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Order;
 import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.service.OrderService;
+import ru.practicum.java.internet_shop_project.service.UserContextService;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -27,8 +33,22 @@ public class OrderControllerIntegrationMockTest {
     @MockitoBean
     private OrderService orderService;
 
+    @MockitoBean
+    private UserContextService userContextService;
+
     @Autowired
     private WebTestClient webTestClient;
+
+    private final OAuth2AuthenticationToken authentication = new OAuth2AuthenticationToken(
+            new DefaultOAuth2User(
+                    List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                    Map.of("preferred_username", "testuser"),
+                    "preferred_username"
+            ),
+            List.of(new SimpleGrantedAuthority("ROLE_USER")),
+            "keycloak"
+    );
+
 
     @Test
     void testGetAllOrders_success() {
@@ -37,10 +57,12 @@ public class OrderControllerIntegrationMockTest {
                 new OrderWithItemsDto(2L, List.of(), BigDecimal.valueOf(2500))
         );
 
-        when(orderService.getAllOrders()).thenReturn(Flux.fromIterable(orders));
-        when(orderService.getTotalOrdersPrice()).thenReturn(Mono.just(BigDecimal.valueOf(4000)));
+        when(userContextService.getCurrentUserId(authentication)).thenReturn(Mono.just(1L));
+        when(orderService.getAllOrders(1L)).thenReturn(Flux.fromIterable(orders));
+        when(orderService.getTotalOrdersPrice(1L)).thenReturn(Mono.just(BigDecimal.valueOf(4000)));
 
-        webTestClient.get()
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockAuthentication(authentication))
+                .get()
                 .uri("/orders")
                 .exchange()
                 .expectStatus().isOk()
@@ -59,13 +81,16 @@ public class OrderControllerIntegrationMockTest {
     void testGetOrderById_success() {
         OrderWithItemsDto orderDto = new OrderWithItemsDto(
                 1L,
-                List.of(new OrderItemDto(1L, 1L, 1,new Product(1L, "Laptop", "", "", BigDecimal.valueOf(1500)))),
+                List.of(new OrderItemDto(1L, 1L, 1,
+                        new Product(1L, "Laptop", "", "", BigDecimal.valueOf(1500)))),
                 BigDecimal.valueOf(1500)
         );
 
-        when(orderService.getOrderById(1L)).thenReturn(Mono.just(orderDto));
+        when(userContextService.getCurrentUserId(authentication)).thenReturn(Mono.just(1L));
+        when(orderService.getOrderById(1L, 1L)).thenReturn(Mono.just(orderDto));
 
-        webTestClient.get()
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockAuthentication(authentication))
+                .get()
                 .uri("/orders/1")
                 .exchange()
                 .expectStatus().isOk()
@@ -84,15 +109,20 @@ public class OrderControllerIntegrationMockTest {
     @Test
     void testCheckoutOrder_success() {
         Order order = Order.builder().id(1L).totalPrice(BigDecimal.valueOf(1500)).build();
-        when(orderService.createOrderFromCart()).thenReturn(Mono.just(order));
 
-        webTestClient.post()
+        when(userContextService.getCurrentUserId(authentication)).thenReturn(Mono.just(1L));
+        when(orderService.createOrderFromCart(1L)).thenReturn(Mono.just(order));
+
+        webTestClient
+                .mutateWith(SecurityMockServerConfigurers.mockAuthentication(authentication))
+                .mutateWith(SecurityMockServerConfigurers.csrf())
+                .post()
                 .uri("/orders/checkout")
                 .exchange()
                 .expectStatus().isSeeOther()
                 .expectHeader().valueEquals("Location", "/orders/1");
 
-        verify(orderService, times(1)).createOrderFromCart();
+        verify(orderService, times(1)).createOrderFromCart(1L);
     }
 
 }

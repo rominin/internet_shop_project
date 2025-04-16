@@ -6,17 +6,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import ru.practicum.java.internet_shop_project.dto.OrderItemDto;
-import ru.practicum.java.internet_shop_project.dto.OrderWithItemsDto;
 import ru.practicum.java.internet_shop_project.entity.Order;
-import ru.practicum.java.internet_shop_project.entity.Product;
 import ru.practicum.java.internet_shop_project.repository.OrderRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,26 +35,29 @@ public class OrderControllerIntegrationTest {
     private WebTestClient webTestClient;
 
     private Order savedOrder;
+    private OAuth2AuthenticationToken authentication;
 
     @BeforeEach
     void setUp() {
-        Product product = new Product(null, "Headphones", "headphones.jpg", "Wireless noise-canceling headphones", new BigDecimal("200"));
-        OrderItemDto orderItem = new OrderItemDto(1L, 1L, 2, product);
-
-        OrderWithItemsDto orderDto = new OrderWithItemsDto(
-                1L, List.of(orderItem), BigDecimal.valueOf(400)
+        DefaultOAuth2User oauthUser = new DefaultOAuth2User(
+                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                Map.of("preferred_username", "testuser"),
+                "preferred_username"
         );
+        authentication = new OAuth2AuthenticationToken(oauthUser, oauthUser.getAuthorities(), "keycloak");
 
-        savedOrder = Order.builder()
-                .totalPrice(orderDto.getTotalPrice())
-                .build();
-
-        savedOrder = orderRepository.save(savedOrder).block();
+        savedOrder = orderRepository.save(
+                Order.builder()
+                        .userId(1L)
+                        .totalPrice(BigDecimal.valueOf(400))
+                        .build()
+        ).block();
     }
 
     @Test
     void testGetAllOrders_success() {
-        webTestClient.get()
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockAuthentication(authentication))
+                .get()
                 .uri("/orders")
                 .exchange()
                 .expectStatus().isOk()
@@ -66,9 +71,11 @@ public class OrderControllerIntegrationTest {
                 });
     }
 
+
     @Test
     void testGetOrderById_success() {
-        webTestClient.get()
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockAuthentication(authentication))
+                .get()
                 .uri("/orders/" + savedOrder.getId())
                 .exchange()
                 .expectStatus().isOk()

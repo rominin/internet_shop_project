@@ -19,6 +19,7 @@ public class SecurityConfig {
                 .authorizeExchange(requests -> requests
                         .anyExchange().hasAuthority("ROLE_SERVICE")
                 )
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .oauth2ResourceServer(serverSpec -> serverSpec
                         .jwt(jwtSpec -> {
                             ReactiveJwtAuthenticationConverter jwtAuthenticationConverter = new ReactiveJwtAuthenticationConverter();
