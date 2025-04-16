@@ -35,6 +35,7 @@ public class CartServiceIntegrationTest {
 
     private Product product1;
     private Product product2;
+    private final Long userId = 1L;
 
     @BeforeEach
     void setUp() {
@@ -45,7 +46,7 @@ public class CartServiceIntegrationTest {
 
     @Test
     void testGetCart_success() {
-        StepVerifier.create(cartService.getCart())
+        StepVerifier.create(cartService.getCart(userId))
                 .assertNext(cart -> {
                     assertThat(cart).isNotNull();
                 })
@@ -54,10 +55,10 @@ public class CartServiceIntegrationTest {
 
     @Test
     void testAddProductToCart_success() {
-        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+        StepVerifier.create(cartService.addProductToCart(userId, product1.getId(), 2))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.getCart())
+        StepVerifier.create(cartService.getCart(userId))
                 .assertNext(cart -> {
                     assertThat(cart.getCartItems()).hasSize(1);
                     assertThat(cart.getCartItems().getFirst().getProduct().getName()).contains("Brand New Device");
@@ -71,13 +72,13 @@ public class CartServiceIntegrationTest {
 
     @Test
     void testUpdateQuantity_success() {
-        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+        StepVerifier.create(cartService.addProductToCart(userId, product1.getId(), 2))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.updateQuantity(product1.getId(), 3))
+        StepVerifier.create(cartService.updateQuantity(userId, product1.getId(), 3))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.getCart())
+        StepVerifier.create(cartService.getCart(userId))
                 .assertNext(cart -> {
                     assertThat(cart.getCartItems().getFirst().getQuantity()).isEqualTo(3);
                     BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(3));
@@ -88,13 +89,13 @@ public class CartServiceIntegrationTest {
 
     @Test
     void testUpdateQuantityToZero_success() {
-        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+        StepVerifier.create(cartService.addProductToCart(userId, product1.getId(), 2))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.updateQuantity(product1.getId(), 0))
+        StepVerifier.create(cartService.updateQuantity(userId, product1.getId(), 0))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.getCart())
+        StepVerifier.create(cartService.getCart(userId))
                 .assertNext(cart -> {
                     assertThat(cart.getCartItems()).isEmpty();
                     assertThat(cart.getTotalPrice()).isEqualByComparingTo(BigDecimal.ZERO);
@@ -104,16 +105,16 @@ public class CartServiceIntegrationTest {
 
     @Test
     void testRemoveProductFromCart_success() {
-        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
+        StepVerifier.create(cartService.addProductToCart(userId, product1.getId(), 2))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.addProductToCart(product2.getId(), 1))
+        StepVerifier.create(cartService.addProductToCart(userId, product2.getId(), 1))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.removeProductFromCart(product1.getId()))
+        StepVerifier.create(cartService.removeProductFromCart(userId, product1.getId()))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.getCart())
+        StepVerifier.create(cartService.getCart(userId))
                 .assertNext(cart -> {
                     assertThat(cart.getCartItems()).hasSize(1);
                     assertThat(cart.getCartItems().getFirst().getProduct().getName()).contains("Smartphone");
@@ -126,7 +127,7 @@ public class CartServiceIntegrationTest {
 
     @Test
     void testAddProductToCart_failure() {
-        StepVerifier.create(cartService.addProductToCart(product1.getId(), -1))
+        StepVerifier.create(cartService.addProductToCart(userId, product1.getId(), -1))
                 .expectErrorMatches(throwable -> throwable instanceof IllegalArgumentException &&
                         throwable.getMessage().equals("Product quantity must be greater than 0"))
                 .verify();
@@ -134,31 +135,13 @@ public class CartServiceIntegrationTest {
 
     @Test
     void testUpdateQuantity_failure() {
-        StepVerifier.create(cartService.addProductToCart(product1.getId(), 1))
+        StepVerifier.create(cartService.addProductToCart(userId, product1.getId(), 1))
                 .verifyComplete();
 
-        StepVerifier.create(cartService.updateQuantity(product1.getId(), -2))
+        StepVerifier.create(cartService.updateQuantity(userId, product1.getId(), -2))
                 .expectErrorMatches(throwable -> throwable instanceof IllegalArgumentException &&
                         throwable.getMessage().equals("Product quantity must be greater than 0"))
                 .verify();
-    }
-
-    @Test
-    void testGetTotalPrice_success() {
-        StepVerifier.create(cartService.addProductToCart(product1.getId(), 2))
-                .verifyComplete();
-
-        StepVerifier.create(cartService.addProductToCart(product2.getId(), 1))
-                .verifyComplete();
-
-        StepVerifier.create(cartService.getTotalPrice())
-                .assertNext(totalPrice -> {
-                    BigDecimal expectedTotal = product1.getPrice().multiply(BigDecimal.valueOf(2))
-                            .add(product2.getPrice().multiply(BigDecimal.ONE));
-
-                    assertThat(totalPrice).isEqualByComparingTo(expectedTotal);
-                })
-                .verifyComplete();
     }
 
 }

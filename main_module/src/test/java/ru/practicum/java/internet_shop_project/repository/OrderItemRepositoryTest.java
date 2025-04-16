@@ -32,12 +32,14 @@ public class OrderItemRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        Order order = new Order(null, new BigDecimal("2300.00"));
+        Order order = Order.builder()
+                .userId(1001L)
+                .totalPrice(new BigDecimal("2300.00"))
+                .build();
 
         orderId = orderRepository.save(order)
                 .map(Order::getId)
                 .block();
-
     }
 
     @Test

@@ -11,9 +11,11 @@ import reactor.test.StepVerifier;
 import ru.practicum.java.internet_shop_project.config.MockedPaymentClientConfiguration;
 import ru.practicum.java.internet_shop_project.entity.Cart;
 import ru.practicum.java.internet_shop_project.entity.Product;
+import ru.practicum.java.internet_shop_project.entity.User;
 import ru.practicum.java.internet_shop_project.repository.CartItemRepository;
 import ru.practicum.java.internet_shop_project.repository.CartRepository;
 import ru.practicum.java.internet_shop_project.repository.ProductRepository;
+import ru.practicum.java.internet_shop_project.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -35,11 +37,13 @@ class OrderServiceIntegrationTest {
     private ProductRepository productRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private OrderService orderService;
 
     private Product product1;
     private Product product2;
-    private final Long SINGLETON_CART_ID = 1L;
 
     @BeforeEach
     void setUp() {
@@ -49,10 +53,18 @@ class OrderServiceIntegrationTest {
 
     @Test
     void testCreateOrderFromEmptyCart_shouldThrowException() {
-        Cart cart = new Cart();
-        cartRepository.save(cart).block();
+        User user = new User();
+        user.setUsername("testuser");
+        user.setRole("CUSTOMER");
 
-        StepVerifier.create(orderService.createOrderFromCart())
+        Long userId = userRepository.save(user)
+                .map(User::getId)
+                .block();
+
+        Cart emptyCart = new Cart(null, userId, BigDecimal.ZERO);
+        cartRepository.save(emptyCart).block();
+
+        StepVerifier.create(orderService.createOrderFromCart(userId))
                 .expectErrorMatches(throwable ->
                         throwable instanceof RuntimeException &&
                                 throwable.getMessage().equals("Cart is empty"))

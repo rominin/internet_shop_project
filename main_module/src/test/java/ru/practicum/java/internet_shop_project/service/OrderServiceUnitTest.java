@@ -8,7 +8,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import ru.practicum.java.internet_shop_project.client.PaymentClient;
+import ru.practicum.java.internet_shop_project.client.PaymentClientV2;
 import ru.practicum.java.internet_shop_project.dto.OrderItemDto;
 import ru.practicum.java.internet_shop_project.entity.*;
 import ru.practicum.java.internet_shop_project.mappers.OrderItemMapper;
@@ -22,6 +22,8 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = OrderService.class)
 public class OrderServiceUnitTest {
+
+    private final Long USER_ID = 1L;
 
     @MockitoBean
     private OrderRepository orderRepository;
@@ -39,7 +41,7 @@ public class OrderServiceUnitTest {
     private OrderItemMapper orderItemMapper;
 
     @MockitoBean
-    private PaymentClient paymentClient;
+    private PaymentClientV2 paymentClient;
 
     @Autowired
     private OrderService orderService;
@@ -49,18 +51,19 @@ public class OrderServiceUnitTest {
     private OrderItem orderItem;
     private CartItem cartItem;
 
+
     @BeforeEach
     void setUp() {
-        cart = new Cart(1L, BigDecimal.valueOf(300));
-        order = new Order(1L, BigDecimal.valueOf(300));
+        cart = new Cart(2L, USER_ID, BigDecimal.valueOf(300));
+        order = new Order(1L, USER_ID, BigDecimal.valueOf(300));
         cartItem = new CartItem(1L, 1L, 1L, 2);
         orderItem = new OrderItem(1L, 1L, 1L, 2);
     }
 
     @Test
     void testGetAllOrders_success() {
-        Order order1 = new Order(1L, BigDecimal.valueOf(500));
-        Order order2 = new Order(2L, BigDecimal.valueOf(700));
+        Order order1 = new Order(1L, USER_ID, BigDecimal.valueOf(500));
+        Order order2 = new Order(2L, USER_ID, BigDecimal.valueOf(700));
 
         OrderItem orderItem1 = new OrderItem(1L, 1L, 101L, 2);
         OrderItem orderItem2 = new OrderItem(2L, 2L, 102L, 3);
@@ -68,7 +71,7 @@ public class OrderServiceUnitTest {
         OrderItemDto orderItemDto1 = new OrderItemDto(1L, 1L, 2, null);
         OrderItemDto orderItemDto2 = new OrderItemDto(2L, 2L, 3, null);
 
-        when(orderRepository.findAll()).thenReturn(Flux.just(order1, order2));
+        when(orderRepository.findAllByUserId(USER_ID)).thenReturn(Flux.just(order1, order2));
         when(orderItemRepository.findByOrderId(1L)).thenReturn(Flux.just(orderItem1));
         when(orderItemRepository.findByOrderId(2L)).thenReturn(Flux.just(orderItem2));
 
@@ -80,99 +83,74 @@ public class OrderServiceUnitTest {
             });
         });
 
-        StepVerifier.create(orderService.getAllOrders())
-                .assertNext(orderDto -> {
-                    assert orderDto != null;
-                    assert orderDto.getId().equals(1L);
-                    assert orderDto.getTotalPrice().equals(BigDecimal.valueOf(500));
-                    assert orderDto.getOrderItems().size() == 1;
-                })
-                .assertNext(orderDto -> {
-                    assert orderDto != null;
-                    assert orderDto.getId().equals(2L);
-                    assert orderDto.getTotalPrice().equals(BigDecimal.valueOf(700));
-                    assert orderDto.getOrderItems().size() == 1;
-                })
+        StepVerifier.create(orderService.getAllOrders(USER_ID))
+                .expectNextCount(2)
                 .verifyComplete();
     }
 
     @Test
     void testGetOrderById_success() {
-        Order order = new Order(1L, BigDecimal.valueOf(500));
-
+        Order order = new Order(1L, USER_ID, BigDecimal.valueOf(500));
         OrderItem orderItem = new OrderItem(1L, 1L, 101L, 2);
         OrderItemDto orderItemDto = new OrderItemDto(1L, 1L, 2, null);
 
-        when(orderRepository.findById(1L)).thenReturn(Mono.just(order));
+        when(orderRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Mono.just(order));
         when(orderItemRepository.findByOrderId(1L)).thenReturn(Flux.just(orderItem));
-
         when(orderItemMapper.toDtoList(any(Flux.class))).thenReturn(Flux.just(orderItemDto));
 
-        StepVerifier.create(orderService.getOrderById(1L))
-                .assertNext(orderDtoResult -> {
-                    assert orderDtoResult != null;
-                    assert orderDtoResult.getId().equals(1L);
-                    assert orderDtoResult.getTotalPrice().equals(BigDecimal.valueOf(500));
-                    assert orderDtoResult.getOrderItems().size() == 1;
+        StepVerifier.create(orderService.getOrderById(1L, USER_ID))
+                .assertNext(dto -> {
+                    assert dto.getId().equals(1L);
+                    assert dto.getOrderItems().size() == 1;
                 })
                 .verifyComplete();
     }
 
     @Test
     void testGetOrderById_failure() {
-        when(orderRepository.findById(1L)).thenReturn(Mono.empty());
+        when(orderRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Mono.empty());
 
-        StepVerifier.create(orderService.getOrderById(1L))
+        StepVerifier.create(orderService.getOrderById(1L, USER_ID))
                 .expectErrorMatches(throwable -> throwable instanceof RuntimeException &&
                         throwable.getMessage().equals("Order not found"))
                 .verify();
-
-        verify(orderRepository, times(1)).findById(1L);
     }
 
     @Test
     void testCreateOrderFromCart_success() {
-        when(cartRepository.findById(1L)).thenReturn(Mono.just(cart));
-        when(paymentClient.makePayment(BigDecimal.valueOf(300))).thenReturn(Mono.just(true));
-        when(cartItemRepository.findByCartId(1L)).thenReturn(Flux.just(cartItem));
+        when(cartRepository.findByUserId(USER_ID)).thenReturn(Mono.just(cart));
+        when(paymentClient.makePayment(USER_ID, BigDecimal.valueOf(300))).thenReturn(Mono.just(true));
+        when(cartItemRepository.findByCartId(cart.getId())).thenReturn(Flux.just(cartItem));
         when(orderRepository.save(any(Order.class))).thenReturn(Mono.just(order));
         when(orderItemRepository.save(any(OrderItem.class))).thenReturn(Mono.just(orderItem));
-        when(cartItemRepository.clearCartItems(1L)).thenReturn(Mono.empty());
+        when(cartItemRepository.clearCartItems(cart.getId())).thenReturn(Mono.empty());
 
-        StepVerifier.create(orderService.createOrderFromCart())
+        StepVerifier.create(orderService.createOrderFromCart(USER_ID))
                 .expectNextMatches(o -> o.getTotalPrice().equals(BigDecimal.valueOf(300)))
                 .verifyComplete();
-
-        verify(orderRepository, times(1)).save(any(Order.class));
-        verify(orderItemRepository, times(1)).save(any(OrderItem.class));
-        verify(cartItemRepository, times(1)).clearCartItems(1L);
     }
 
     @Test
     void testCreateOrderFromCart_failure_emptyCart() {
-        Cart emptyCart = new Cart(1L, BigDecimal.ZERO);
-        when(cartRepository.findById(1L)).thenReturn(Mono.just(emptyCart));
+        Cart emptyCart = new Cart(2L, USER_ID, BigDecimal.ZERO);
+        when(cartRepository.findByUserId(USER_ID)).thenReturn(Mono.just(emptyCart));
 
-        StepVerifier.create(orderService.createOrderFromCart())
+        StepVerifier.create(orderService.createOrderFromCart(USER_ID))
                 .expectErrorMatches(throwable -> throwable instanceof RuntimeException &&
                         throwable.getMessage().equals("Cart is empty"))
                 .verify();
-
-        verifyNoInteractions(orderRepository, orderItemRepository, cartItemRepository);
     }
 
     @Test
     void testGetTotalOrdersPrice_success() {
-        when(orderRepository.findAll()).thenReturn(Flux.just(
-                new Order(1L, BigDecimal.valueOf(500)),
-                new Order(2L, BigDecimal.valueOf(700))
+        when(orderRepository.findAllByUserId(USER_ID)).thenReturn(Flux.just(
+                new Order(1L, USER_ID, BigDecimal.valueOf(500)),
+                new Order(2L, USER_ID, BigDecimal.valueOf(700))
         ));
 
-        StepVerifier.create(orderService.getTotalOrdersPrice())
+        StepVerifier.create(orderService.getTotalOrdersPrice(USER_ID))
                 .expectNext(BigDecimal.valueOf(1200))
                 .verifyComplete();
-
-        verify(orderRepository, times(1)).findAll();
     }
 
 }

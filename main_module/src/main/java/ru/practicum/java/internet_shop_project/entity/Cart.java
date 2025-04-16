@@ -28,8 +28,9 @@ public class Cart {
         this.totalPrice = BigDecimal.ZERO;
     }
 
-    public Cart(Long id, BigDecimal totalPrice) {
+    public Cart(Long id, Long userId, BigDecimal totalPrice) {
         this.id = id;
+        this.userId = userId;
         this.totalPrice = totalPrice != null ? totalPrice : BigDecimal.ZERO;
     }
 
